@@ -555,12 +555,20 @@
 
     <div id="toast-container" class="fixed bottom-5 right-5 z-[100] space-y-2"></div>
 
+    <!-- Load Firebase configuration from external file -->
+    <script src="config.js"></script>
+    
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, getDoc, query, where, getDocs, orderBy, limit, startAfter, endBefore, limitToLast } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
+        // firebaseConfig is now loaded from config.js (gitignored)
+        if (typeof firebaseConfig === 'undefined') {
+            console.error('Firebase configuration not found! Please ensure config.js exists and contains firebaseConfig.');
+            document.body.innerHTML = '<div style="padding: 20px; text-align: center;"><h1>Configuration Error</h1><p>Firebase configuration file (config.js) is missing. Please create it from config.example.js</p></div>';
+        }
         
         let app, db, auth, storage, currentUser = null, userRole = 'member';
         let allIssues = [], allUsers = [], teamMembers = [], hospitals = [];
