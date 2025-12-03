@@ -557,7 +557,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, getDoc, query, where, getDocs, orderBy, limit, startAfter, endBefore, limitToLast } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
@@ -619,6 +619,18 @@
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
+                        // Check if user's email is from cloudphysician.net domain
+                        const userEmail = user.email || '';
+                        const allowedDomain = 'cloudphysician.net';
+                        
+                        if (!userEmail.endsWith('@' + allowedDomain)) {
+                            // Sign out user if domain doesn't match
+                            await signOut(auth);
+                            ui.loginError.textContent = `Access restricted. Only ${allowedDomain} email addresses are allowed.`;
+                            ui.loginError.classList.remove('hidden');
+                            return;
+                        }
+                        
                         currentUser = user;
                         ui.loginScreen.style.display = 'none';
                         ui.app.style.display = 'flex';
@@ -925,7 +937,17 @@
         async function handleGoogleSignIn() {
             const provider = new GoogleAuthProvider();
             try {
-                await signInWithPopup(auth, provider);
+                const result = await signInWithPopup(auth, provider);
+                // Additional check after sign-in (though onAuthStateChanged will also check)
+                const userEmail = result.user.email || '';
+                const allowedDomain = 'cloudphysician.net';
+                
+                if (!userEmail.endsWith('@' + allowedDomain)) {
+                    await signOut(auth);
+                    ui.loginError.textContent = `Access restricted. Only ${allowedDomain} email addresses are allowed.`;
+                    ui.loginError.classList.remove('hidden');
+                    return;
+                }
             } catch (error) {
                 console.error("Google Sign-In failed:", error);
                 let errorMessage = "Could not sign in. Please try again.";
