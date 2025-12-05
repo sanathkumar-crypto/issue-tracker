@@ -4,17 +4,19 @@
 {% block page_title %}Issue Details{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Issue Details Card -->
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
         <div class="p-6 border-b">
             <div class="flex justify-between items-start">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-900">Issue #{{ issue.id }}</h2>
+                    <h2 class="text-2xl font-bold text-slate-900">{{ issue.taskName or 'Untitled Issue' }}</h2>
                     <p class="text-sm text-slate-500 mt-1">
+                        Issue #{{ issue.id }}
                         {% if issue.is_closed %}
-                        <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Closed</span>
+                        <span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Closed</span>
                         {% else %}
-                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Open</span>
+                        <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">{{ issue.status or 'Open' }}</span>
                         {% endif %}
                     </p>
                 </div>
@@ -25,28 +27,87 @@
         <div class="p-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700">Email</label>
-                    <p class="mt-1 text-sm text-slate-900">{{ issue.email }}</p>
+                    <label class="block text-sm font-medium text-slate-700">Task Name</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.taskName or 'N/A' }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700">Category</label>
-                    <p class="mt-1 text-sm text-slate-900">{{ issue.category }}</p>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.category or 'N/A' }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700">Hospital</label>
-                    <p class="mt-1 text-sm text-slate-900">{{ issue.hospital }}</p>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.hospitalUnit or 'N/A' }}</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700">Time Started</label>
-                    <p class="mt-1 text-sm text-slate-900">{{ issue.time_started_formatted }}</p>
+                    <label class="block text-sm font-medium text-slate-700">Zone</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.zone or 'N/A' }}</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700">Time Closed</label>
-                    <p class="mt-1 text-sm {% if issue.is_closed %}text-green-600 font-semibold{% else %}text-slate-400{% endif %}">
-                        {{ issue.time_closed_formatted or 'Not closed yet' }}
+                    <label class="block text-sm font-medium text-slate-700">Priority</label>
+                    <p class="mt-1 text-sm text-slate-900">
+                        <span class="px-2 py-1 rounded text-xs font-semibold
+                            {% if issue.priority == 'Critical' %}bg-red-100 text-red-800
+                            {% elif issue.priority == 'High' %}bg-fuchsia-100 text-fuchsia-800
+                            {% elif issue.priority == 'Medium' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ issue.priority or 'Medium' }}
+                        </span>
                     </p>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Status</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.status or 'Open' }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Main Owner</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.mainOwner or 'N/A' }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Co-owners</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.coOwners or 'None' }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Created By</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.createdBy or 'N/A' }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Email</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.creatorEmail or issue.createdBy or 'N/A' }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Date Logged</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.dateLogged_formatted or 'N/A' }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Due Date</label>
+                    <p class="mt-1 text-sm text-slate-900">{{ issue.dueDate_formatted or 'No due date' }}</p>
+                </div>
+                {% if issue.is_closed %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Date Closed</label>
+                    <p class="mt-1 text-sm text-green-600 font-semibold">{{ issue.dateClosed_formatted or 'N/A' }}</p>
+                </div>
+                {% endif %}
             </div>
+
+            <div class="mt-6 pt-6 border-t">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Description</label>
+                <p class="text-sm text-slate-900 whitespace-pre-wrap">{{ issue.description or 'No description provided' }}</p>
+            </div>
+
+            {% if issue.stepsTaken %}
+            <div class="mt-6 pt-6 border-t">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Steps Taken</label>
+                <p class="text-sm text-slate-900 whitespace-pre-wrap">{{ issue.stepsTaken }}</p>
+            </div>
+            {% endif %}
+
+            {% if issue.reviewNotes %}
+            <div class="mt-6 pt-6 border-t">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Review Notes</label>
+                <p class="text-sm text-slate-900 whitespace-pre-wrap">{{ issue.reviewNotes }}</p>
+            </div>
+            {% endif %}
 
             {% if not issue.is_closed %}
             <div class="mt-6 pt-6 border-t">
@@ -57,6 +118,50 @@
                 </form>
             </div>
             {% endif %}
+        </div>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="p-6 border-b">
+            <h3 class="text-lg font-semibold text-slate-900">Comments</h3>
+        </div>
+        
+        <div class="p-6">
+            <!-- Comments List -->
+            <div class="space-y-4 mb-6">
+                {% if comments %}
+                    {% for comment in comments %}
+                    <div class="border-l-4 border-indigo-500 pl-4 py-2">
+                        <div class="flex justify-between items-start mb-1">
+                            <div>
+                                <p class="text-sm font-medium text-slate-900">{{ comment.authorName }}</p>
+                                {% if comment.authorEmail %}
+                                <p class="text-xs text-slate-500">{{ comment.authorEmail }}</p>
+                                {% endif %}
+                            </div>
+                            <p class="text-xs text-slate-500">{{ comment.timestamp_formatted }}</p>
+                        </div>
+                        <p class="text-sm text-slate-700 whitespace-pre-wrap mt-2">{{ comment.text }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-sm text-slate-500 italic">No comments yet. Be the first to comment!</p>
+                {% endif %}
+            </div>
+
+            <!-- Add Comment Form -->
+            <div class="border-t pt-6">
+                <h4 class="text-sm font-medium text-slate-700 mb-3">Add a Comment</h4>
+                <form method="POST" action="{{ url_for('add_comment', issue_id=issue.id) }}">
+                    <textarea name="text" rows="4" required 
+                              class="block w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                              placeholder="Write your comment here..."></textarea>
+                    <button type="submit" class="mt-3 inline-flex justify-center py-2 px-6 border text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors">
+                        Add Comment
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>

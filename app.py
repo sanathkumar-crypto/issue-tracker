@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, request, session, redirect, url_for, flash, send_from_directory
 from flask_cors import CORS
 from functools import wraps
 import os
@@ -6,8 +6,6 @@ import csv
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-import hashlib
-import uuid
 from werkzeug.utils import secure_filename
 from urllib.parse import unquote
 
@@ -253,7 +251,7 @@ def delete_issue_data(issue_id):
 def get_comments(issue_id):
     """Get comments for an issue"""
     comments_file = COMMENTS_DIR / f'{issue_id}.csv'
-    return read_csv(comments_file, ['id', 'text', 'authorName', 'timestamp'])
+    return read_csv(comments_file, ['id', 'text', 'authorName', 'authorEmail', 'timestamp'])
 
 def add_comment(issue_id, comment_data):
     """Add a comment to an issue"""
@@ -264,7 +262,7 @@ def add_comment(issue_id, comment_data):
     comment_data['timestamp'] = datetime.now().isoformat()
     comments.append(comment_data)
     
-    write_csv(comments_file, comments, ['id', 'text', 'authorName', 'timestamp'])
+    write_csv(comments_file, comments, ['id', 'text', 'authorName', 'authorEmail', 'timestamp'])
     return comment_data['id']
 
 # History Management
@@ -1122,11 +1120,29 @@ def issue_detail(issue_id):
     
     # Format issue
     formatted_issue = dict(issue)
-    formatted_issue['time_started_formatted'] = format_datetime(issue.get('time_started'))
-    formatted_issue['time_closed_formatted'] = format_datetime(issue.get('time_closed')) if issue.get('time_closed') else None
-    formatted_issue['is_closed'] = bool(issue.get('time_closed'))
+    formatted_issue['dateLogged_formatted'] = format_datetime(issue.get('dateLogged'))
+    formatted_issue['dateClosed_formatted'] = format_datetime(issue.get('dateClosed')) if issue.get('dateClosed') else None
+    formatted_issue['dueDate_formatted'] = format_date(issue.get('dueDate'))
+    formatted_issue['is_closed'] = bool(issue.get('dateClosed'))
     
-    return render_template('issue_detail.html', issue=formatted_issue, category_mappings=CATEGORY_MAPPINGS)
+    # Get creator email
+    all_users = get_all_users()
+    creator_name = issue.get('createdBy', '')
+    creator_user = next((u for u in all_users if u.get('name') == creator_name), None)
+    formatted_issue['creatorEmail'] = creator_user.get('email', '') if creator_user else ''
+    
+    # Get comments
+    comments = get_comments(issue_id)
+    # Format comments with timestamps
+    for comment in comments:
+        comment['timestamp_formatted'] = format_datetime(comment.get('timestamp'))
+        # If authorEmail is missing, try to look it up
+        if not comment.get('authorEmail'):
+            author_name = comment.get('authorName', '')
+            author_user = next((u for u in all_users if u.get('name') == author_name), None)
+            comment['authorEmail'] = author_user.get('email', '') if author_user else ''
+    
+    return render_template('issue_detail.html', issue=formatted_issue, comments=comments, category_mappings=CATEGORY_MAPPINGS)
 
 @app.route('/issues/<issue_id>/close', methods=['POST'])
 @login_required
@@ -1160,10 +1176,12 @@ def delete_issue(issue_id):
 @login_required
 def add_comment(issue_id):
     user_name = session.get('user_name', session.get('user_email', 'Unknown'))
+    user_email = session.get('user_email', '')
     
     comment_id = add_comment(issue_id, {
         'text': request.form.get('text', ''),
-        'authorName': user_name
+        'authorName': user_name,
+        'authorEmail': user_email
     })
     
     # Update issue last modified
