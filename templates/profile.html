@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - Issue Tracker{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-1 text-slate-900">My Profile</h2>
+        <p class="text-sm text-slate-500 mb-6">Manage your personal settings and notification preferences.</p>
+        
+        <div class="border-t pt-6">
+            <h3 class="text-lg font-semibold text-slate-800">Individual Google Chat Notifications</h3>
+            <p class="text-sm text-slate-600 mt-2 mb-4">To receive direct notifications in Google Chat, create a private space, add a webhook, and paste the URL below.</p>
+            
+            <div class="p-4 bg-slate-50 rounded-lg border">
+                <h4 class="font-semibold text-slate-700">How to get your Webhook URL:</h4>
+                <ol class="list-decimal list-inside text-sm text-slate-600 mt-2 space-y-1">
+                    <li>In Google Chat, click the <strong>+</strong> icon next to "Spaces" and select <strong>Create a space</strong>.</li>
+                    <li>Give the space a name (e.g., "My App Notifications") and click <strong>Create</strong>. Do not add other people.</li>
+                    <li>In your new private space, click the space name at the top and go to <strong>Apps & Integrations</strong>.</li>
+                    <li>Click <strong>Add webhooks</strong>, name it "Issue Tracker Bot", and save.</li>
+                    <li>Click the <strong>Copy</strong> icon to copy the webhook URL.</li>
+                </ol>
+            </div>
+
+            <form method="POST" action="{{ url_for('save_profile') }}" class="mt-4">
+                <div>
+                    <label for="webhook-url" class="block text-sm font-medium text-slate-700">Your Personal Webhook URL</label>
+                    <input type="text" id="webhook-url" name="webhook_url" value="{{ user.googleChatWebhookUrl or '' }}"
+                           class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500" 
+                           placeholder="https://chat.googleapis.com/v1/spaces/...">
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="py-2 px-5 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                        Save Settings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

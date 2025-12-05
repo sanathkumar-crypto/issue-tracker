@@ -178,29 +178,14 @@
 <body class="bg-slate-50 text-slate-800">
 
     <div id="login-screen" class="fixed inset-0 bg-slate-800 bg-opacity-95 flex items-center justify-center z-[100]">
-        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-sm">
-            <h2 class="text-2xl font-bold mb-4 text-slate-900 text-center">Issue Tracker Login</h2>
-            <p class="text-slate-600 mb-6 text-center">Enter your @cloudphysician.net email to continue.</p>
-            <form id="email-login-form" class="space-y-4">
-                <div>
-                    <label for="email-input" class="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
-                    <input 
-                        type="email" 
-                        id="email-input" 
-                        placeholder="your.name@cloudphysician.net" 
-                        required
-                        class="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-                <button 
-                    type="submit" 
-                    id="email-login-btn" 
-                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
-                >
-                    Sign In
-                </button>
-            </form>
-            <p id="login-error" class="text-red-500 mt-4 text-sm text-center hidden"></p>
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center w-full max-w-sm">
+            <h2 class="text-2xl font-bold mb-4 text-slate-900">Issue Tracker Login</h2>
+            <p class="text-slate-600 mb-6">Please sign in with your Google account to continue.</p>
+            <button id="google-signin-btn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors">
+                <svg class="w-5 h-5" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"></path><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20z"></path><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C41.389 36.213 44 30.606 44 24c0-1.341-.138-2.65-.389-3.917z"></path></svg>
+                Sign in with Google
+            </button>
+            <p id="login-error" class="text-red-500 mt-4 hidden"></p>
         </div>
     </div>
     
@@ -609,11 +594,22 @@
 
     <div id="toast-container" class="fixed bottom-5 right-5 z-[100] space-y-2"></div>
 
+    <!-- Load Firebase configuration from external file -->
+    <script src="config.js"></script>
+    
     <script type="module">
-        // Import API Client
-        import { apiClient } from '/static/js/api.js';
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, getDoc, query, where, getDocs, orderBy, limit, startAfter, endBefore, limitToLast } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+        // firebaseConfig is now loaded from config.js (gitignored)
+        if (typeof firebaseConfig === 'undefined') {
+            console.error('Firebase configuration not found! Please ensure config.js exists and contains firebaseConfig.');
+            document.body.innerHTML = '<div style="padding: 20px; text-align: center;"><h1>Configuration Error</h1><p>Firebase configuration file (config.js) is missing. Please create it from config.example.js</p></div>';
+        }
         
-        let currentUser = null, userRole = 'member';
+        let app, db, auth, storage, currentUser = null, userRole = 'member';
         let allIssues = [], allUsers = [], teamMembers = [], hospitals = [];
         let sortConfig = { key: 'dateLogged', direction: 'desc' };
         let isMyTasksViewActive = false;
@@ -791,7 +787,7 @@
         }
 
         function cacheDOMElements() {
-            const ids = ['login-screen', 'email-input', 'email-login-btn', 'email-login-form', 'login-error', 'app', 'auth-status', 'view-title', 'admin-nav-section', 'add-issue-form', 'issues-list', 'loading-state', 'hospital-list', 'team-list', 'view-modal', 'close-modal-btn', 'modal-title', 'modal-content', 'resolve-task-modal', 'steps-taken', 'cancel-resolve-btn', 'save-resolve-btn', 'close-task-modal', 'review-notes', 'cancel-close-btn', 'save-close-btn', 'universal-search', 'filter-zone', 'filter-priority', 'filter-status', 'clear-filters-btn', 'my-tasks-link', 'my-tasks-banner', 'export-csv-btn', 'notification-bell-container', 'notification-bell-btn', 'notification-dot', 'notification-panel', 'notification-list', 'new-user-email', 'new-user-role', 'add-user-role-btn', 'new-hospital-name', 'new-hospital-zone', 'add-hospital-btn', 'bulk-hospital-names', 'bulk-add-hospitals-btn', 'new-team-member-select', 'add-team-member-btn', 'hospitalUnit', 'zone', 'priority', 'main-category', 'sub-category', 'other-sub-category', 'category', 'taskName', 'description', 'mainOwner', 'coOwner1', 'coOwner2', 'dueDate', 'toggle-add-issue-form-btn', 'add-issue-collapsible', 'form-chevron', 'new-comment-input', 'add-comment-btn', 'modal-comments-list', 'mention-suggestions', 'file-upload-input', 'upload-file-btn', 'modal-attachments-list', 'upload-progress-container', 'upload-progress-bar', 'tab-panel-details', 'tab-panel-attachments', 'tab-panel-comments', 'tab-panel-history', 'toggle-team-btn', 'team-content', 'sidebar', 'sidebar-overlay', 'menu-btn', 'personal-webhook-url', 'save-profile-btn', 'confirm-modal', 'confirm-modal-title', 'confirm-modal-message', 'confirm-modal-confirm-btn', 'confirm-modal-cancel-btn', 'pagination-controls', 'prev-page-btn', 'next-page-btn', 'page-info', 'toggle-user-role-btn', 'user-role-content', 'toggle-hospital-btn', 'hospital-content'];
+            const ids = ['login-screen', 'google-signin-btn', 'login-error', 'app', 'auth-status', 'view-title', 'admin-nav-section', 'add-issue-form', 'issues-list', 'loading-state', 'hospital-list', 'team-list', 'view-modal', 'close-modal-btn', 'modal-title', 'modal-content', 'resolve-task-modal', 'steps-taken', 'cancel-resolve-btn', 'save-resolve-btn', 'close-task-modal', 'review-notes', 'cancel-close-btn', 'save-close-btn', 'universal-search', 'filter-zone', 'filter-priority', 'filter-status', 'clear-filters-btn', 'my-tasks-link', 'my-tasks-banner', 'export-csv-btn', 'notification-bell-container', 'notification-bell-btn', 'notification-dot', 'notification-panel', 'notification-list', 'new-user-email', 'new-user-role', 'add-user-role-btn', 'new-hospital-name', 'new-hospital-zone', 'add-hospital-btn', 'bulk-hospital-names', 'bulk-add-hospitals-btn', 'new-team-member-select', 'add-team-member-btn', 'hospitalUnit', 'zone', 'priority', 'main-category', 'sub-category', 'other-sub-category', 'category', 'taskName', 'description', 'mainOwner', 'coOwner1', 'coOwner2', 'dueDate', 'toggle-add-issue-form-btn', 'add-issue-collapsible', 'form-chevron', 'new-comment-input', 'add-comment-btn', 'modal-comments-list', 'mention-suggestions', 'file-upload-input', 'upload-file-btn', 'modal-attachments-list', 'upload-progress-container', 'upload-progress-bar', 'tab-panel-details', 'tab-panel-attachments', 'tab-panel-comments', 'tab-panel-history', 'toggle-team-btn', 'team-content', 'sidebar', 'sidebar-overlay', 'menu-btn', 'personal-webhook-url', 'save-profile-btn', 'confirm-modal', 'confirm-modal-title', 'confirm-modal-message', 'confirm-modal-confirm-btn', 'confirm-modal-cancel-btn', 'pagination-controls', 'prev-page-btn', 'next-page-btn', 'page-info', 'toggle-user-role-btn', 'user-role-content', 'toggle-hospital-btn', 'hospital-content'];
             ids.forEach(id => {
                 const camelCaseId = id.replace(/-([a-z])/g, g => g[1].toUpperCase());
                 ui[camelCaseId] = document.getElementById(id);
@@ -800,27 +796,46 @@
             ui.modalTabs = document.querySelectorAll('.modal-tab');
         }
         
-        async function initializeAppLogic() {
-            // Check if user is already logged in
+        function initializeAppLogic() {
             try {
-                const userData = await apiClient.getCurrentUser();
-                if (userData && userData.email) {
-                    currentUser = userData;
-                    userRole = userData.role || 'member';
-                    ui.loginScreen.style.display = 'none';
-                    ui.app.style.display = 'flex';
-                    ui.authStatus.textContent = `Signed in as ${userData.name || userData.email}`;
-                    await setupUserRole();
-                    initializeDataListeners();
-                    navigateToView(window.location.hash.substring(1).split('?')[0] || 'dashboard');
-                } else {
-                    ui.loginScreen.style.display = 'flex';
-                    ui.app.style.display = 'none';
-                }
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                storage = getStorage(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        // Check if user's email is from cloudphysician.net domain
+                        const userEmail = user.email || '';
+                        const allowedDomain = 'cloudphysician.net';
+                        
+                        if (!userEmail.endsWith('@' + allowedDomain)) {
+                            // Sign out user if domain doesn't match
+                            await signOut(auth);
+                            ui.loginError.textContent = `Access restricted. Only ${allowedDomain} email addresses are allowed.`;
+                            ui.loginError.classList.remove('hidden');
+                            return;
+                        }
+                        
+                        currentUser = user;
+                        ui.loginScreen.style.display = 'none';
+                        ui.app.style.display = 'flex';
+                        ui.authStatus.textContent = `Signed in as ${user.displayName || user.email}`;
+                        await setupUserRole();
+                        initializeDataListeners();
+                        navigateToView(window.location.hash.substring(1).split('?')[0] || 'dashboard');
+                    } else {
+                        currentUser = null;
+                        userRole = 'member';
+                        ui.loginScreen.style.display = 'flex';
+                        ui.app.style.display = 'none';
+                        cleanupListeners();
+                    }
+                });
             } catch (error) {
-                // Not logged in, show login screen
-                ui.loginScreen.style.display = 'flex';
-                ui.app.style.display = 'none';
+                console.error("Firebase initialization failed.", error);
+                ui.loginError.textContent = "Firebase initialization failed. Check console.";
+                ui.loginError.classList.remove('hidden');
             }
         }
         
@@ -872,7 +887,7 @@
             ui.nextPageBtn.addEventListener('click', () => fetchIssuesPage('next'));
             ui.prevPageBtn.addEventListener('click', () => fetchIssuesPage('prev'));
 
-            ui.emailLoginForm.addEventListener('submit', handleEmailLogin);
+            ui.googleSigninBtn.addEventListener('click', handleGoogleSignIn);
             ui.addIssueForm.addEventListener('submit', addIssue);
             ui.saveProfileBtn.addEventListener('click', saveProfileSettings);
             ui.addUserRoleBtn.addEventListener('click', handleAddUserRole);
@@ -1255,46 +1270,36 @@
         }
 
         async function setupUserRole() {
-            // User role is already set from login response
-            if (currentUser && currentUser.role) {
-                userRole = currentUser.role;
+            const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+            if (userDoc.exists()) {
+                userRole = userDoc.data().role || 'member';
             } else {
+                await setDoc(doc(db, 'users', currentUser.uid), { email: currentUser.email, name: currentUser.displayName.trim(), role: 'member' });
                 userRole = 'member';
             }
             ui.adminNavSection.classList.toggle('hidden', userRole !== 'admin');
         }
 
-        async function handleEmailLogin(event) {
-            event.preventDefault();
-            ui.loginError.classList.add('hidden');
-            
-            const email = ui.emailInput.value.trim().toLowerCase();
-            
-            if (!email) {
-                ui.loginError.textContent = "Please enter your email address.";
-                ui.loginError.classList.remove('hidden');
-                return;
-            }
-            
-            if (!email.endsWith('@cloudphysician.net')) {
-                ui.loginError.textContent = "Access restricted. Only @cloudphysician.net email addresses are allowed.";
-                ui.loginError.classList.remove('hidden');
-                return;
-            }
-            
+        async function handleGoogleSignIn() {
+            const provider = new GoogleAuthProvider();
             try {
-                const userData = await apiClient.login(email);
-                currentUser = userData;
-                userRole = userData.role || 'member';
-                ui.loginScreen.style.display = 'none';
-                ui.app.style.display = 'flex';
-                ui.authStatus.textContent = `Signed in as ${userData.name || userData.email}`;
-                await setupUserRole();
-                initializeDataListeners();
-                navigateToView(window.location.hash.substring(1).split('?')[0] || 'dashboard');
+                const result = await signInWithPopup(auth, provider);
+                // Additional check after sign-in (though onAuthStateChanged will also check)
+                const userEmail = result.user.email || '';
+                const allowedDomain = 'cloudphysician.net';
+                
+                if (!userEmail.endsWith('@' + allowedDomain)) {
+                    await signOut(auth);
+                    ui.loginError.textContent = `Access restricted. Only ${allowedDomain} email addresses are allowed.`;
+                    ui.loginError.classList.remove('hidden');
+                    return;
+                }
             } catch (error) {
-                console.error("Login failed:", error);
-                ui.loginError.textContent = error.message || "Login failed. Please try again.";
+                console.error("Google Sign-In failed:", error);
+                let errorMessage = "Could not sign in. Please try again.";
+                if (error.code === 'auth/popup-closed-by-user') errorMessage = "Sign-in cancelled. Please try again.";
+                else if (error.code === 'auth/network-request-failed') errorMessage = "Network error. Please check your connection.";
+                ui.loginError.textContent = errorMessage;
                 ui.loginError.classList.remove('hidden');
             }
         }

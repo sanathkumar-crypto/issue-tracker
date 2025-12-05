@@ -1,4 +1,22 @@
-# Firebase Configuration - contains sensitive keys
+# Data directory (CSV files)
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Environment variables
+.env
+
+# Firebase credentials
+firebase-credentials.json
 config.js
 
 # OS files
@@ -12,3 +30,6 @@ Thumbs.db
 *.swo
 *~
 
+# Flask
+instance/
+.webassets-cache

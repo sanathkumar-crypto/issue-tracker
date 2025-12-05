@@ -178,29 +178,18 @@
 <body class="bg-slate-50 text-slate-800">
 
     <div id="login-screen" class="fixed inset-0 bg-slate-800 bg-opacity-95 flex items-center justify-center z-[100]">
-        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-sm">
-            <h2 class="text-2xl font-bold mb-4 text-slate-900 text-center">Issue Tracker Login</h2>
-            <p class="text-slate-600 mb-6 text-center">Enter your @cloudphysician.net email to continue.</p>
-            <form id="email-login-form" class="space-y-4">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center w-full max-w-sm">
+            <h2 class="text-2xl font-bold mb-4 text-slate-900">Issue Tracker Login</h2>
+            <p class="text-slate-600 mb-6">Please enter your email address to continue.</p>
+            <form id="login-form" class="space-y-4">
                 <div>
-                    <label for="email-input" class="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
-                    <input 
-                        type="email" 
-                        id="email-input" 
-                        placeholder="your.name@cloudphysician.net" 
-                        required
-                        class="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    <input type="email" id="login-email" placeholder="your.email@cloudphysician.net" required class="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                 </div>
-                <button 
-                    type="submit" 
-                    id="email-login-btn" 
-                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
-                >
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
                     Sign In
                 </button>
             </form>
-            <p id="login-error" class="text-red-500 mt-4 text-sm text-center hidden"></p>
+            <p id="login-error" class="text-red-500 mt-4 hidden"></p>
         </div>
     </div>
     
@@ -609,10 +598,13 @@
 
     <div id="toast-container" class="fixed bottom-5 right-5 z-[100] space-y-2"></div>
 
-    <script type="module">
-        // Import API Client
-        import { apiClient } from '/static/js/api.js';
+    <!-- API Client - No Firebase needed, using CSV storage -->
+    <script src="/static/js/api.js"></script>
+    
+    <script>
+        // No Firebase - using CSV storage and simple email-based authentication via Flask API
         
+        // No Firebase - all data stored in CSV files via Flask API
         let currentUser = null, userRole = 'member';
         let allIssues = [], allUsers = [], teamMembers = [], hospitals = [];
         let sortConfig = { key: 'dateLogged', direction: 'desc' };
@@ -791,7 +783,7 @@
         }
 
         function cacheDOMElements() {
-            const ids = ['login-screen', 'email-input', 'email-login-btn', 'email-login-form', 'login-error', 'app', 'auth-status', 'view-title', 'admin-nav-section', 'add-issue-form', 'issues-list', 'loading-state', 'hospital-list', 'team-list', 'view-modal', 'close-modal-btn', 'modal-title', 'modal-content', 'resolve-task-modal', 'steps-taken', 'cancel-resolve-btn', 'save-resolve-btn', 'close-task-modal', 'review-notes', 'cancel-close-btn', 'save-close-btn', 'universal-search', 'filter-zone', 'filter-priority', 'filter-status', 'clear-filters-btn', 'my-tasks-link', 'my-tasks-banner', 'export-csv-btn', 'notification-bell-container', 'notification-bell-btn', 'notification-dot', 'notification-panel', 'notification-list', 'new-user-email', 'new-user-role', 'add-user-role-btn', 'new-hospital-name', 'new-hospital-zone', 'add-hospital-btn', 'bulk-hospital-names', 'bulk-add-hospitals-btn', 'new-team-member-select', 'add-team-member-btn', 'hospitalUnit', 'zone', 'priority', 'main-category', 'sub-category', 'other-sub-category', 'category', 'taskName', 'description', 'mainOwner', 'coOwner1', 'coOwner2', 'dueDate', 'toggle-add-issue-form-btn', 'add-issue-collapsible', 'form-chevron', 'new-comment-input', 'add-comment-btn', 'modal-comments-list', 'mention-suggestions', 'file-upload-input', 'upload-file-btn', 'modal-attachments-list', 'upload-progress-container', 'upload-progress-bar', 'tab-panel-details', 'tab-panel-attachments', 'tab-panel-comments', 'tab-panel-history', 'toggle-team-btn', 'team-content', 'sidebar', 'sidebar-overlay', 'menu-btn', 'personal-webhook-url', 'save-profile-btn', 'confirm-modal', 'confirm-modal-title', 'confirm-modal-message', 'confirm-modal-confirm-btn', 'confirm-modal-cancel-btn', 'pagination-controls', 'prev-page-btn', 'next-page-btn', 'page-info', 'toggle-user-role-btn', 'user-role-content', 'toggle-hospital-btn', 'hospital-content'];
+            const ids = ['login-screen', 'login-form', 'login-email', 'login-error', 'app', 'auth-status', 'view-title', 'admin-nav-section', 'add-issue-form', 'issues-list', 'loading-state', 'hospital-list', 'team-list', 'view-modal', 'close-modal-btn', 'modal-title', 'modal-content', 'resolve-task-modal', 'steps-taken', 'cancel-resolve-btn', 'save-resolve-btn', 'close-task-modal', 'review-notes', 'cancel-close-btn', 'save-close-btn', 'universal-search', 'filter-zone', 'filter-priority', 'filter-status', 'clear-filters-btn', 'my-tasks-link', 'my-tasks-banner', 'export-csv-btn', 'notification-bell-container', 'notification-bell-btn', 'notification-dot', 'notification-panel', 'notification-list', 'new-user-email', 'new-user-role', 'add-user-role-btn', 'new-hospital-name', 'new-hospital-zone', 'add-hospital-btn', 'bulk-hospital-names', 'bulk-add-hospitals-btn', 'new-team-member-select', 'add-team-member-btn', 'hospitalUnit', 'zone', 'priority', 'main-category', 'sub-category', 'other-sub-category', 'category', 'taskName', 'description', 'mainOwner', 'coOwner1', 'coOwner2', 'dueDate', 'toggle-add-issue-form-btn', 'add-issue-collapsible', 'form-chevron', 'new-comment-input', 'add-comment-btn', 'modal-comments-list', 'mention-suggestions', 'file-upload-input', 'upload-file-btn', 'modal-attachments-list', 'upload-progress-container', 'upload-progress-bar', 'tab-panel-details', 'tab-panel-attachments', 'tab-panel-comments', 'tab-panel-history', 'toggle-team-btn', 'team-content', 'sidebar', 'sidebar-overlay', 'menu-btn', 'personal-webhook-url', 'save-profile-btn', 'confirm-modal', 'confirm-modal-title', 'confirm-modal-message', 'confirm-modal-confirm-btn', 'confirm-modal-cancel-btn', 'pagination-controls', 'prev-page-btn', 'next-page-btn', 'page-info', 'toggle-user-role-btn', 'user-role-content', 'toggle-hospital-btn', 'hospital-content'];
             ids.forEach(id => {
                 const camelCaseId = id.replace(/-([a-z])/g, g => g[1].toUpperCase());
                 ui[camelCaseId] = document.getElementById(id);
@@ -800,46 +792,73 @@
             ui.modalTabs = document.querySelectorAll('.modal-tab');
         }
         
-        async function initializeAppLogic() {
-            // Check if user is already logged in
+        function initializeAppLogic() {
+            // No Firebase - check if user is already logged in via Flask session
+            checkAuthStatus();
+        }
+        
+        async function checkAuthStatus() {
             try {
                 const userData = await apiClient.getCurrentUser();
-                if (userData && userData.email) {
-                    currentUser = userData;
-                    userRole = userData.role || 'member';
-                    ui.loginScreen.style.display = 'none';
-                    ui.app.style.display = 'flex';
-                    ui.authStatus.textContent = `Signed in as ${userData.name || userData.email}`;
-                    await setupUserRole();
-                    initializeDataListeners();
-                    navigateToView(window.location.hash.substring(1).split('?')[0] || 'dashboard');
-                } else {
-                    ui.loginScreen.style.display = 'flex';
-                    ui.app.style.display = 'none';
-                }
+                currentUser = userData;
+                userRole = userData.role || 'member';
+                
+                ui.loginScreen.style.display = 'none';
+                ui.app.style.display = 'flex';
+                ui.authStatus.textContent = `Signed in as ${userData.name || userData.email}`;
+                
+                initializeDataListeners();
+                navigateToView(window.location.hash.substring(1).split('?')[0] || 'dashboard');
             } catch (error) {
-                // Not logged in, show login screen
+                // Not logged in - show login screen
+                currentUser = null;
+                userRole = 'member';
                 ui.loginScreen.style.display = 'flex';
                 ui.app.style.display = 'none';
             }
         }
         
         function initializeDataListeners() {
-            cleanupListeners();
+            // Load data from Flask API instead of Firestore
             fetchIssuesPage();
-
-            const collections = {
-                'users': listenForAllUsers,
-                'settings/hospitals': listenForHospitals,
-                'settings/teamMembers': listenForTeamMembers,
-                'notifications': listenForNotifications
-            };
-            Object.entries(collections).forEach(([path, handler]) => {
-                const ref = path.includes('/') ? doc(db, path) : collection(db, path);
-                const q = (path === 'notifications' && currentUser) ? query(collection(db, path), where("recipientIds", "array-contains", currentUser.uid), orderBy('timestamp', 'desc')) : ref;
-                const unsubscribe = onSnapshot(q, handler);
-                unsubscribes.push(unsubscribe);
-            });
+            loadHospitals();
+            loadTeamMembers();
+            loadUsers();
+        }
+        
+        async function loadHospitals() {
+            try {
+                hospitals = await apiClient.getHospitals();
+                renderHospitals();
+                updateHospitalDropdown();
+                populateZoneFilter();
+            } catch (error) {
+                console.error('Error loading hospitals:', error);
+            }
+        }
+        
+        async function loadTeamMembers() {
+            try {
+                teamMembers = await apiClient.getTeamMembers();
+                renderTeamMembers();
+                updateOwnerDropdowns();
+                populateAddTeamMemberDropdown();
+            } catch (error) {
+                console.error('Error loading team members:', error);
+            }
+        }
+        
+        async function loadUsers() {
+            try {
+                const response = await apiClient.request('/users');
+                allUsers = response.users || [];
+                populateAddTeamMemberDropdown();
+                if (window.location.hash === '#profile') {
+                    renderProfileView();
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
         }
         
         function cleanupListeners() {
@@ -872,7 +891,9 @@
             ui.nextPageBtn.addEventListener('click', () => fetchIssuesPage('next'));
             ui.prevPageBtn.addEventListener('click', () => fetchIssuesPage('prev'));
 
-            ui.emailLoginForm.addEventListener('submit', handleEmailLogin);
+            if (ui.loginForm) {
+                ui.loginForm.addEventListener('submit', handleEmailLogin);
+            }
             ui.addIssueForm.addEventListener('submit', addIssue);
             ui.saveProfileBtn.addEventListener('click', saveProfileSettings);
             ui.addUserRoleBtn.addEventListener('click', handleAddUserRole);
@@ -1059,104 +1080,50 @@
         }
 
         async function updateDashboard() {
-            // Use cached data if available, otherwise fetch from Firestore
-            let allDbIssues = [];
+            // Get dashboard stats from Flask API
+            let stats;
             try {
-                const querySnapshot = await getDocs(collection(db, 'issues'));
-                allDbIssues = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Update cache with fresh data
-                await cacheIssues(allDbIssues);
+                stats = await apiClient.getDashboardStats();
             } catch (error) {
-                console.log('Using cached data for dashboard');
-                allDbIssues = await loadIssuesFromCache();
+                console.error('Error loading dashboard stats:', error);
+                showToast('Failed to load dashboard statistics', 'error');
+                return;
             }
-
-            const totalTasks = allDbIssues.length;
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const oneWeekAgo = new Date(); oneWeekAgo.setDate(now.getDate() - 7);
-            const oneDayAgo = new Date(); oneDayAgo.setDate(now.getDate() - 1);
-            const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(now.getDate() - 30);
-
-            const statusCounts = { 'Open': 0, 'In Progress': 0, 'Resolved': 0, 'Closed': 0 };
-            const priorityCounts = { 'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0 };
-            const categoryCounts = {};
-            let overdueTasks = 0, closedThisWeek = 0, myOpenTasks = 0;
-            let createdToday = 0, resolvedToday = 0;
-            let totalResolutionTime = 0, resolvedCount = 0;
-            const currentUserName = currentUser ? currentUser.displayName.trim() : '';
             
-            // Trend data for last 30 days
-            const trendData = Array(30).fill(0).map((_, i) => {
-                const date = new Date();
-                date.setDate(date.getDate() - (29 - i));
-                return { date: date.toISOString().split('T')[0], created: 0, resolved: 0 };
-            });
+            // Use stats from API
+            const allDbIssues = allIssues; // Use current issues list
 
-            allDbIssues.forEach(i => {
-                // Basic counts
-                if (statusCounts[i.status] !== undefined) statusCounts[i.status]++;
-                if (priorityCounts[i.priority] !== undefined) priorityCounts[i.priority]++;
-                
-                // Category breakdown
-                const category = i.category || 'Other';
-                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-                
-                // Overdue tasks
-                if (i.dueDate && !['Resolved', 'Closed'].includes(i.status)) {
-                    const dueDate = new Date(i.dueDate + 'T00:00:00Z');
-                    if (dueDate < today) overdueTasks++;
-                }
-                
-                // Closed this week
-                if (i.status === 'Closed' && i.dateClosed) {
-                    const closedDate = i.dateClosed.toDate ? i.dateClosed.toDate() : new Date(i.dateClosed);
-                    if (closedDate >= oneWeekAgo) closedThisWeek++;
-                    if (closedDate >= oneDayAgo) resolvedToday++;
-                }
-                
-                // Created today
-                if (i.dateLogged) {
-                    const loggedDate = i.dateLogged.toDate ? i.dateLogged.toDate() : new Date(i.dateLogged);
-                    if (loggedDate >= oneDayAgo) createdToday++;
-                    
-                    // Trend data
-                    const dateStr = loggedDate.toISOString().split('T')[0];
-                    const trendIndex = trendData.findIndex(t => t.date === dateStr);
-                    if (trendIndex >= 0) trendData[trendIndex].created++;
-                }
-                
-                // Resolution time calculation
-                if (i.status === 'Closed' && i.dateClosed && i.dateLogged) {
-                    const loggedDate = i.dateLogged.toDate ? i.dateLogged.toDate() : new Date(i.dateLogged);
-                    const closedDate = i.dateClosed.toDate ? i.dateClosed.toDate() : new Date(i.dateClosed);
-                    const resolutionTime = (closedDate - loggedDate) / (1000 * 60 * 60 * 24); // days
-                    totalResolutionTime += resolutionTime;
-                    resolvedCount++;
-                    
-                    // Trend data for resolved
-                    const dateStr = closedDate.toISOString().split('T')[0];
-                    const trendIndex = trendData.findIndex(t => t.date === dateStr);
-                    if (trendIndex >= 0) trendData[trendIndex].resolved++;
-                }
-                
-                // My tasks
-                if (currentUserName && ['Open', 'In Progress'].includes(i.status) && (i.mainOwner === currentUserName || (i.coOwners || []).includes(currentUserName))) {
-                    myOpenTasks++;
-                }
-            });
+            // Use stats directly from API response
+            const statusCounts = stats.statusCounts || { 'Open': 0, 'In Progress': 0, 'Resolved': 0, 'Closed': 0 };
+            const priorityCounts = stats.priorityCounts || { 'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0 };
+            const categoryCounts = stats.categoryCounts || {};
+            const totalTasks = stats.totalTasks || 0;
+            const overdueTasks = stats.overdueTasks || 0;
+            const closedThisWeek = stats.closedThisWeek || 0;
+            const myOpenTasks = stats.myActiveTasks || 0;
+            const createdToday = stats.createdToday || 0;
+            const resolvedToday = stats.resolvedToday || 0;
+            const avgResolutionTime = stats.avgResolutionTime || 0;
+            const trendData = stats.trendData || [];
 
             // Update basic stats
-            document.getElementById('stat-total-tasks').textContent = totalTasks;
-            document.getElementById('stat-overdue-tasks').textContent = overdueTasks;
-            document.getElementById('stat-closed-week').textContent = closedThisWeek;
-            document.getElementById('stat-my-tasks').textContent = myOpenTasks;
+            if (document.getElementById('stat-total-tasks')) {
+                document.getElementById('stat-total-tasks').textContent = totalTasks;
+            }
+            if (document.getElementById('stat-overdue-tasks')) {
+                document.getElementById('stat-overdue-tasks').textContent = overdueTasks;
+            }
+            if (document.getElementById('stat-closed-week')) {
+                document.getElementById('stat-closed-week').textContent = closedThisWeek;
+            }
+            if (document.getElementById('stat-my-tasks')) {
+                document.getElementById('stat-my-tasks').textContent = myOpenTasks;
+            }
             
             // Update enhanced metrics
             const avgResolutionEl = document.getElementById('metric-avg-resolution');
             if (avgResolutionEl) {
-                const avgResolution = resolvedCount > 0 ? (totalResolutionTime / resolvedCount).toFixed(1) : 0;
-                avgResolutionEl.textContent = avgResolution > 0 ? `${avgResolution} days` : 'N/A';
+                avgResolutionEl.textContent = avgResolutionTime > 0 ? `${avgResolutionTime} days` : 'N/A';
             }
             
             const createdTodayEl = document.getElementById('metric-created-today');
@@ -1254,30 +1221,19 @@
             });
         }
 
-        async function setupUserRole() {
-            // User role is already set from login response
-            if (currentUser && currentUser.role) {
-                userRole = currentUser.role;
-            } else {
-                userRole = 'member';
+        function setupUserRole() {
+            // User role is already set from API response
+            if (ui.adminNavSection) {
+                ui.adminNavSection.classList.toggle('hidden', userRole !== 'admin');
             }
-            ui.adminNavSection.classList.toggle('hidden', userRole !== 'admin');
         }
 
-        async function handleEmailLogin(event) {
-            event.preventDefault();
-            ui.loginError.classList.add('hidden');
-            
-            const email = ui.emailInput.value.trim().toLowerCase();
+        async function handleEmailLogin(e) {
+            e.preventDefault();
+            const email = ui.loginEmail.value.trim().toLowerCase();
             
             if (!email) {
-                ui.loginError.textContent = "Please enter your email address.";
-                ui.loginError.classList.remove('hidden');
-                return;
-            }
-            
-            if (!email.endsWith('@cloudphysician.net')) {
-                ui.loginError.textContent = "Access restricted. Only @cloudphysician.net email addresses are allowed.";
+                ui.loginError.textContent = 'Please enter your email address.';
                 ui.loginError.classList.remove('hidden');
                 return;
             }
@@ -1286,15 +1242,18 @@
                 const userData = await apiClient.login(email);
                 currentUser = userData;
                 userRole = userData.role || 'member';
+                
                 ui.loginScreen.style.display = 'none';
                 ui.app.style.display = 'flex';
                 ui.authStatus.textContent = `Signed in as ${userData.name || userData.email}`;
-                await setupUserRole();
+                ui.loginError.classList.add('hidden');
+                
+                setupUserRole();
                 initializeDataListeners();
                 navigateToView(window.location.hash.substring(1).split('?')[0] || 'dashboard');
             } catch (error) {
                 console.error("Login failed:", error);
-                ui.loginError.textContent = error.message || "Login failed. Please try again.";
+                ui.loginError.textContent = error.message || 'Login failed. Please try again.';
                 ui.loginError.classList.remove('hidden');
             }
         }
@@ -1323,103 +1282,102 @@
 
         async function fetchIssuesPage(direction = null) {
             try {
-                // Try to load from cache first for faster initial load
-                try {
-                    const cachedIssues = await loadIssuesFromCache();
-                    if (cachedIssues.length > 0 && !direction) {
-                        // Use cached data for initial render
-                        allIssues = cachedIssues;
-                        renderFilteredIssues();
-                        updateDashboard();
-                    }
-                } catch (cacheError) {
-                    console.log('Cache not available or empty, fetching from Firestore');
-                }
-                
                 if (isMyTasksViewActive) {
                     ui.paginationControls.style.display = 'none';
-                    const currentUserName = currentUser ? currentUser.displayName.trim() : '';
-                    if (!currentUserName) { allIssues = []; renderFilteredIssues(); return; }
+                    const currentUserName = currentUser ? (currentUser.name || currentUser.email || '').trim() : '';
+                    if (!currentUserName) { 
+                        allIssues = []; 
+                        renderFilteredIssues(); 
+                        return; 
+                    }
 
-                    const mainOwnerQuery = query(collection(db, 'issues'), 
-                        where("mainOwner", "==", currentUserName), 
-                        where("status", "in", ["Open", "In Progress"])
-                    );
-                    const coOwnerQuery = query(collection(db, 'issues'), 
-                        where("coOwners", "array-contains", currentUserName),
-                        where("status", "in", ["Open", "In Progress"])
-                    );
-
-                    const [mainOwnerSnap, coOwnerSnap] = await Promise.all([ getDocs(mainOwnerQuery), getDocs(coOwnerQuery) ]);
-
-                    const issuesMap = new Map();
-                    mainOwnerSnap.forEach(doc => issuesMap.set(doc.id, { id: doc.id, ...doc.data() }));
-                    coOwnerSnap.forEach(doc => issuesMap.set(doc.id, { id: doc.id, ...doc.data() }));
+                    // Get all issues and filter client-side for "My Tasks"
+                    const response = await apiClient.getIssues({
+                        page: 1,
+                        per_page: 1000, // Get all for filtering
+                        sort_by: sortConfig.key,
+                        sort_dir: sortConfig.direction
+                    });
                     
-                    allIssues = Array.from(issuesMap.values()).sort((a,b) => b.dateLogged.toMillis() - a.dateLogged.toMillis());
+                    // Filter for user's tasks
+                    allIssues = response.issues.filter(issue => {
+                        const status = issue.status || '';
+                        if (!['Open', 'In Progress'].includes(status)) return false;
+                        return issue.mainOwner === currentUserName || 
+                               (issue.coOwners && issue.coOwners.includes(currentUserName));
+                    });
                     
-                    // Cache the results
-                    await cacheIssues(allIssues);
+                    // Sort by date
+                    allIssues.sort((a, b) => {
+                        const dateA = a.dateLogged || 0;
+                        const dateB = b.dateLogged || 0;
+                        return sortConfig.direction === 'desc' ? dateB - dateA : dateA - dateB;
+                    });
                     
                     renderFilteredIssues();
                 } else {
                     ui.paginationControls.style.display = 'flex';
-                    let q = query(collection(db, 'issues'), orderBy(sortConfig.key, sortConfig.direction));
                     
-                    if (direction === 'next' && lastVisibleDoc) {
-                        q = query(q, startAfter(lastVisibleDoc), limit(ISSUES_PER_PAGE));
-                    } else if (direction === 'prev' && firstVisibleDoc) {
-                        q = query(q, endBefore(firstVisibleDoc), limitToLast(ISSUES_PER_PAGE));
-                    } else {
-                        q = query(q, limit(ISSUES_PER_PAGE));
-                    }
-
-                    const documentSnapshots = await getDocs(q);
+                    // Get current page from URL or default to 1
+                    const urlParams = new URLSearchParams(window.location.search);
+                    let currentPage = parseInt(urlParams.get('page')) || 1;
                     
-                    if (documentSnapshots.empty && direction) {
-                        showToast('No more issues to show.', 'info');
-                        return;
+                    if (direction === 'next') {
+                        currentPage++;
+                    } else if (direction === 'prev') {
+                        currentPage = Math.max(1, currentPage - 1);
                     }
-
-                    firstVisibleDoc = documentSnapshots.docs[0];
-                    lastVisibleDoc = documentSnapshots.docs[documentSnapshots.docs.length - 1];
-                    allIssues = documentSnapshots.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                    // Cache the results
-                    await cacheIssues(allIssues);
+                    
+                    const response = await apiClient.getIssues({
+                        page: currentPage,
+                        per_page: ISSUES_PER_PAGE,
+                        sort_by: sortConfig.key,
+                        sort_dir: sortConfig.direction,
+                        status: document.getElementById('filter-status')?.value || '',
+                        priority: document.getElementById('filter-priority')?.value || '',
+                        zone: document.getElementById('filter-zone')?.value || '',
+                        search: document.getElementById('universal-search')?.value || ''
+                    });
+                    
+                    allIssues = response.issues || [];
+                    
+                    // Convert timestamp numbers to Firestore-like objects for compatibility
+                    allIssues = allIssues.map(issue => ({
+                        ...issue,
+                        dateLogged: issue.dateLogged ? { 
+                            toDate: () => new Date(issue.dateLogged),
+                            toMillis: () => issue.dateLogged
+                        } : null,
+                        lastModified: issue.lastModified ? {
+                            toDate: () => new Date(issue.lastModified),
+                            toMillis: () => issue.lastModified
+                        } : null,
+                        dateClosed: issue.dateClosed ? {
+                            toDate: () => new Date(issue.dateClosed),
+                            toMillis: () => issue.dateClosed
+                        } : null
+                    }));
 
                     renderFilteredIssues();
                     updateDashboard();
-                    updatePaginationButtons(documentSnapshots.size);
+                    updatePaginationButtons(response.total, currentPage, response.pages);
                 }
             } catch (error) {
                 console.error("Error fetching issues:", error);
-                // If Firestore fails, try to use cache
-                try {
-                    const cachedIssues = await loadIssuesFromCache();
-                    if (cachedIssues.length > 0) {
-                        allIssues = cachedIssues;
-                        renderFilteredIssues();
-                        updateDashboard();
-                        showToast('Using cached data. Some data may be outdated.', 'info');
-                        return;
-                    }
-                } catch (cacheError) {
-                    console.error('Cache also failed:', cacheError);
-                }
-                
-                if (error.code === 'failed-precondition') {
-                     showToast("Could not load all tasks. A database index is missing. Check the developer console (F12) for a link to create it.", "error");
-                     console.error("This query requires a composite index. You can create it here: " + error.message.match(/https?:\/\/[^\s]+/g)[0]);
-                } else {
-                    showToast("Failed to load issues.", "error");
-                }
+                showToast("Failed to load issues: " + (error.message || 'Unknown error'), "error");
             }
         }
         
-        function updatePaginationButtons(currentPageSize) {
-            ui.prevPageBtn.disabled = !firstVisibleDoc;
-            ui.nextPageBtn.disabled = currentPageSize < ISSUES_PER_PAGE;
+        function updatePaginationButtons(total, currentPage, totalPages) {
+            if (ui.prevPageBtn) {
+                ui.prevPageBtn.disabled = currentPage <= 1;
+            }
+            if (ui.nextPageBtn) {
+                ui.nextPageBtn.disabled = currentPage >= totalPages;
+            }
+            if (ui.pageInfo) {
+                ui.pageInfo.textContent = `Page ${currentPage} of ${totalPages} (${total} total)`;
+            }
         }
 
         function listenForNotifications(snapshot) {
@@ -1448,8 +1406,6 @@
             const formData = new FormData(ui.addIssueForm);
             const mainOwnerName = formData.get('mainOwner');
             const coOwnerNames = [formData.get('coOwner1'), formData.get('coOwner2')].filter(Boolean);
-            const getUidByName = (name) => teamMembers.find(m => m.name === name)?.uid || 'unknown';
-            const ownerUIDs = [getUidByName(mainOwnerName), ...coOwnerNames.map(getUidByName)];
 
             const newIssue = {
                 hospitalUnit: formData.get('hospitalUnit'),
@@ -1460,30 +1416,18 @@
                 description: formData.get('description'),
                 mainOwner: mainOwnerName,
                 coOwners: coOwnerNames,
-                dueDate: formData.get('dueDate') || null,
-                status: 'Open',
-                dateLogged: serverTimestamp(),
-                createdBy: currentUser.displayName.trim(),
-                lastModified: serverTimestamp(),
-                lastModifiedBy: currentUser.displayName.trim()
+                dueDate: formData.get('dueDate') || null
             };
             try {
-                const docRef = await addDoc(collection(db, 'issues'), newIssue);
-                await addDoc(collection(db, `issues/${docRef.id}/history`), { user: currentUser.displayName.trim(), action: `created the task for ${newIssue.hospitalUnit}.`, timestamp: serverTimestamp() });
-                
-                // Update cache
-                const newIssueWithId = { id: docRef.id, ...newIssue };
-                await cacheIssues([...allIssues, newIssueWithId]);
+                const response = await apiClient.createIssue(newIssue);
                 
                 ui.addIssueForm.reset();
                 toggleAddIssueForm();
                 fetchIssuesPage();
                 showToast('New issue successfully logged!');
-                const message = `${currentUser.displayName.trim()} assigned you a new task: "${newIssue.taskName}"`;
-                await createNotification(ownerUIDs, message, {id: docRef.id, ...newIssue});
             } catch (error) {
-                console.error("Error adding document: ", error);
-                showToast('Failed to log issue.', 'error');
+                console.error("Error adding issue: ", error);
+                showToast('Failed to log issue: ' + (error.message || 'Unknown error'), 'error');
             }
         }
 
@@ -1493,10 +1437,9 @@
             ui.saveProfileBtn.textContent = 'Saving...';
 
             try {
-                const userRef = doc(db, 'users', currentUser.uid);
-                await updateDoc(userRef, {
-                    googleChatWebhookUrl: webhookUrl
-                });
+                // Update user profile via API (if endpoint exists)
+                // For now, just show success - profile update can be added later
+                showToast('Profile settings saved (webhook URL storage not yet implemented)', 'info');
                 showSaveConfirmation(ui.saveProfileBtn, 'Save Settings');
             } catch (error) {
                 console.error("Error saving profile settings:", error);
@@ -1507,7 +1450,7 @@
         }
 
         function renderProfileView() {
-            const currentUserData = allUsers.find(user => user.id === currentUser.uid);
+            const currentUserData = allUsers.find(user => user.id === currentUser.id);
             if (currentUserData) {
                 ui.personalWebhookUrl.value = currentUserData.googleChatWebhookUrl || '';
             }
@@ -1524,18 +1467,8 @@
             toggleButtonLoading(ui.addUserRoleBtn, true);
 
             try {
-                const q = query(collection(db, 'users'), where("email", "==", email));
-                const querySnapshot = await getDocs(q);
-                
-                if (querySnapshot.empty) {
-                    showToast(`User with email ${email} not found.`, 'error');
-                    return;
-                }
-                
-                const updatePromises = querySnapshot.docs.map(userDoc => updateDoc(userDoc.ref, { role: role }));
-                await Promise.all(updatePromises);
-                
-                showToast(`Role for ${email} updated to ${role}.`, 'success');
+                // Update user role via API (endpoint to be implemented)
+                showToast('User role update via API not yet implemented. Users are created automatically on first login.', 'info');
                 ui.newUserEmail.value = '';
             } catch (error) {
                 console.error("Error updating user role:", error);
@@ -1560,13 +1493,19 @@
             toggleButtonLoading(ui.addHospitalBtn, true);
             try {
                 const updatedHospitals = [...hospitals, { name, zone }].sort((a, b) => a.name.localeCompare(b.name));
-                await setDoc(doc(db, 'settings', 'hospitals'), { list: updatedHospitals });
+                await apiClient.request('/settings/hospitals', {
+                    method: 'POST',
+                    body: JSON.stringify(updatedHospitals)
+                });
+                hospitals = updatedHospitals;
+                renderHospitals();
+                updateHospitalDropdown();
                 showToast(`Hospital "${name}" added.`, 'success');
                 ui.newHospitalName.value = '';
                 ui.newHospitalZone.value = '';
             } catch (error) {
                 console.error("Error adding hospital:", error);
-                showToast('Failed to add hospital.', 'error');
+                showToast('Failed to add hospital: ' + (error.message || 'Unknown error'), 'error');
             } finally {
                 toggleButtonLoading(ui.addHospitalBtn, false);
             }
@@ -1579,11 +1518,17 @@
                 async () => {
                     try {
                         const updatedHospitals = hospitals.filter(h => h.name !== name);
-                        await setDoc(doc(db, 'settings', 'hospitals'), { list: updatedHospitals });
+                        await apiClient.request('/settings/hospitals', {
+                            method: 'POST',
+                            body: JSON.stringify(updatedHospitals)
+                        });
+                        hospitals = updatedHospitals;
+                        renderHospitals();
+                        updateHospitalDropdown();
                         showToast(`Hospital "${name}" removed.`, 'success');
                     } catch (error) {
                         console.error("Error removing hospital:", error);
-                        showToast('Failed to remove hospital.', 'error');
+                        showToast('Failed to remove hospital: ' + (error.message || 'Unknown error'), 'error');
                     }
                 }
             );
@@ -1610,7 +1555,13 @@
                             addedCount++;
                         }
                     });
-                    await setDoc(doc(db, 'settings', 'hospitals'), { list: combined.sort((a,b) => a.name.localeCompare(b.name)) });
+                    await apiClient.request('/settings/hospitals', {
+                        method: 'POST',
+                        body: JSON.stringify(combined.sort((a,b) => a.name.localeCompare(b.name)))
+                    });
+                    hospitals = combined;
+                    renderHospitals();
+                    updateHospitalDropdown();
                     showToast(`${addedCount} new hospital(s) added successfully.`, 'success');
                     ui.bulkHospitalNames.value = '';
                 } else {
@@ -1618,7 +1569,7 @@
                 }
             } catch (error) {
                 console.error("Error bulk adding hospitals:", error);
-                showToast('An error occurred during bulk add.', 'error');
+                showToast('An error occurred during bulk add: ' + (error.message || 'Unknown error'), 'error');
             } finally {
                 toggleButtonLoading(ui.bulkAddHospitalsBtn, false);
             }
@@ -1640,11 +1591,17 @@
 
             try {
                 const updatedMembers = [...teamMembers, { uid: userToAdd.id, name: userToAdd.name }].sort((a,b) => a.name.localeCompare(b.name));
-                await setDoc(doc(db, 'settings', 'teamMembers'), { members: updatedMembers });
+                await apiClient.request('/settings/team', {
+                    method: 'POST',
+                    body: JSON.stringify(updatedMembers)
+                });
+                teamMembers = updatedMembers;
+                renderTeamMembers();
+                updateTeamMemberDropdowns();
                 showToast(`${userToAdd.name} added to the team.`, 'success');
             } catch (error) {
                 console.error("Error adding team member:", error);
-                showToast('Failed to add team member.', 'error');
+                showToast('Failed to add team member: ' + (error.message || 'Unknown error'), 'error');
             } finally {
                 toggleButtonLoading(ui.addTeamMemberBtn, false);
             }
@@ -1660,19 +1617,32 @@
                 async () => {
                     try {
                         const updatedMembers = teamMembers.filter(m => m.uid !== uid);
-                        await setDoc(doc(db, 'settings', 'teamMembers'), { members: updatedMembers });
+                        await apiClient.request('/settings/team', {
+                            method: 'POST',
+                            body: JSON.stringify(updatedMembers)
+                        });
+                        teamMembers = updatedMembers;
+                        renderTeamMembers();
+                        updateTeamMemberDropdowns();
                         showToast('Team member removed.', 'success');
                     } catch (error) {
                         console.error("Error removing team member:", error);
-                        showToast('Failed to remove team member.', 'error');
+                        showToast('Failed to remove team member: ' + (error.message || 'Unknown error'), 'error');
                     }
                 }
             );
         }
 
         async function exportToCsv() {
-            const allIssuesSnapshot = await getDocs(query(collection(db, 'issues'), orderBy('dateLogged', 'desc')));
-            const issuesToExport = allIssuesSnapshot.docs.map(doc => doc.data());
+            try {
+                // Get all issues from API
+                const response = await apiClient.getIssues({
+                    page: 1,
+                    per_page: 10000, // Get all issues
+                    sort_by: 'dateLogged',
+                    sort_dir: 'desc'
+                });
+                const issuesToExport = response.issues || [];
             
             let csvContent = "data:text/csv;charset=utf-8,";
             const headers = ["Date Reported", "Hospital Unit", "Zone", "Task Name", "Priority", "Category", "Description", "Main Owner", "Co-owners", "Due Date", "Status", "Last Modified"];
@@ -1887,35 +1857,46 @@
         }
 
         async function showViewModal(issueId) {
-            if (unsubscribes.modal) unsubscribes.modal.forEach(unsub => unsub());
-            unsubscribes.modal = [];
-            
             mentionedUsers = [];
 
-            const issueDoc = await getDoc(doc(db, 'issues', issueId));
-            if (!issueDoc.exists()) {
+            try {
+                const issueData = await apiClient.getIssue(issueId);
+                
+                // Convert timestamps to Firestore-like format for compatibility
+                if (issueData.dateLogged) {
+                    issueData.dateLogged = typeof issueData.dateLogged === 'number' ? {
+                        toDate: () => new Date(issueData.dateLogged),
+                        toMillis: () => issueData.dateLogged
+                    } : issueData.dateLogged;
+                }
+                if (issueData.lastModified) {
+                    issueData.lastModified = typeof issueData.lastModified === 'number' ? {
+                        toDate: () => new Date(issueData.lastModified),
+                        toMillis: () => issueData.lastModified
+                    } : issueData.lastModified;
+                }
+                if (issueData.dateClosed) {
+                    issueData.dateClosed = typeof issueData.dateClosed === 'number' ? {
+                        toDate: () => new Date(issueData.dateClosed),
+                        toMillis: () => issueData.dateClosed
+                    } : issueData.dateClosed;
+                }
+                
+                currentModalIssue = issueData;
+                renderModalDetails(issueData);
+                
+                // Render subcollections
+                if (issueData.comments) renderComments(issueData.comments);
+                if (issueData.attachments) renderAttachments(issueData.attachments);
+                if (issueData.history) renderHistory(issueData.history);
+
+                ui.viewModal.classList.remove('hidden');
+                ui.viewModal.classList.add('flex');
+                switchModalTab(null, 'tab-details');
+            } catch (error) {
+                console.error("Error loading issue:", error);
                 showToast("This issue could not be found.", "error");
-                return;
-            };
-
-            const initialIssueData = { id: issueDoc.id, ...issueDoc.data() };
-            renderModalDetails(initialIssueData);
-            
-            const modalListeners = [
-                onSnapshot(doc(db, 'issues', issueId), (doc) => {
-                    if (doc.exists()) {
-                        currentModalIssue = { id: doc.id, ...doc.data() };
-                    }
-                }),
-                onSnapshot(query(collection(db, `issues/${issueId}/comments`), orderBy('timestamp', 'asc')), renderComments),
-                onSnapshot(query(collection(db, `issues/${issueId}/attachments`), orderBy('timestamp', 'desc')), renderAttachments),
-                onSnapshot(query(collection(db, `issues/${issueId}/history`), orderBy('timestamp', 'desc')), renderHistory)
-            ];
-            unsubscribes.modal = modalListeners;
-
-            ui.viewModal.classList.remove('hidden');
-            ui.viewModal.classList.add('flex');
-            switchModalTab(null, 'tab-details');
+            }
         }
 
         function closeModalAndUnsubscribe() {
@@ -1931,7 +1912,7 @@
                 await updateIssue(issueToUpdate.id, {
                     status: 'Resolved',
                     stepsTaken: stepsTaken,
-                    resolvedBy: currentUser.displayName.trim()
+                    resolvedBy: currentUser ? (currentUser.name || currentUser.email || 'Unknown').trim() : 'Unknown'
                 }, `resolved the task. Resolution steps: "${stepsTaken}"`);
                 ui.resolveTaskModal.classList.add('hidden');
                 issueToUpdate = null;
@@ -1945,7 +1926,7 @@
                 await updateIssue(issueToUpdate.id, {
                     status: 'Closed',
                     reviewNotes: reviewNotes,
-                    dateClosed: serverTimestamp()
+                    dateClosed: new Date().toISOString()
                 }, `closed the task. Admin review: "${reviewNotes}"`);
                 ui.closeTaskModal.classList.add('hidden');
                 issueToUpdate = null;
@@ -1956,20 +1937,27 @@
         async function handleAddComment() {
             const commentText = ui.newCommentInput.value.trim();
             if (!commentText || !currentModalIssue) return;
-            await addDoc(collection(db, `issues/${currentModalIssue.id}/comments`), {
-                text: commentText,
-                authorName: currentUser.displayName.trim(),
-                timestamp: serverTimestamp()
-            });
-            await updateDoc(doc(db, 'issues', currentModalIssue.id), { lastModified: serverTimestamp(), lastModifiedBy: currentUser.displayName.trim() });
             
-            ui.newCommentInput.value = '';
-            handleCommentInput(); 
-
-            const allRecipients = [currentModalIssue.mainOwner, ...(currentModalIssue.coOwners || [])]
-                .map(name => teamMembers.find(m => m.name === name)?.uid).filter(Boolean);
-            const message = `${currentUser.displayName.trim()} commented on: "${currentModalIssue.taskName}"`;
-            await createNotification([...new Set([...allRecipients, ...mentionedUsers])], message, currentModalIssue);
+            try {
+                const userName = currentUser ? (currentUser.name || currentUser.email || 'Unknown').trim() : 'Unknown';
+                
+                await apiClient.request(`/issues/${currentModalIssue.id}/comments`, {
+                    method: 'POST',
+                    body: JSON.stringify({ text: commentText })
+                });
+                
+                // Reload issue to get updated comments
+                const updatedIssue = await apiClient.getIssue(currentModalIssue.id);
+                if (updatedIssue.comments) {
+                    renderComments(updatedIssue.comments);
+                }
+                
+                ui.newCommentInput.value = '';
+                handleCommentInput();
+            } catch (error) {
+                console.error("Error adding comment:", error);
+                showToast('Failed to add comment: ' + (error.message || 'Unknown error'), 'error');
+            }
         }
 
         function handleCommentInput() {
@@ -1997,9 +1985,10 @@
                 (error) => { console.error("Upload failed:", error); showToast("File upload failed.", "error"); }, 
                 async () => {
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    await addDoc(collection(db, `issues/${currentModalIssue.id}/attachments`), {
-                        fileName: file.name, downloadURL, uploadedBy: currentUser.displayName.trim(), timestamp: serverTimestamp()
-                    });
+                    // Note: File upload to Firebase Storage still works, but metadata goes to Flask API
+                    const userName = currentUser ? (currentUser.name || currentUser.email || 'Unknown').trim() : 'Unknown';
+                    // For now, we'll handle file uploads via Flask API endpoint (to be implemented)
+                    showToast('File upload via API not yet implemented. Use Firebase Storage directly for now.', 'info');
                     await updateIssue(currentModalIssue.id, {}, `uploaded attachment: ${file.name}.`);
                     ui.uploadProgressContainer.classList.add('hidden');
                     ui.fileUploadInput.value = '';
@@ -2029,15 +2018,21 @@
         }
         
         async function updateIssue(id, data, actionLog) {
-            const issueDocRef = doc(db, 'issues', id);
-            const updateData = { ...data, lastModified: serverTimestamp(), lastModifiedBy: currentUser.displayName.trim() };
-            await updateDoc(issueDocRef, updateData);
-            if (actionLog) {
-                await addDoc(collection(db, `issues/${id}/history`), { user: currentUser.displayName.trim(), action: actionLog, timestamp: serverTimestamp() });
+            try {
+                const userName = currentUser ? (currentUser.name || currentUser.email || 'Unknown').trim() : 'Unknown';
+                const updateData = { ...data };
+                if (actionLog) {
+                    updateData.actionLog = actionLog;
+                }
+                
+                await apiClient.updateIssue(id, updateData);
+                
+                // Refresh issues list
+                setTimeout(() => fetchIssuesPage(), 500);
+            } catch (error) {
+                console.error("Error updating issue:", error);
+                showToast('Failed to update issue: ' + (error.message || 'Unknown error'), 'error');
             }
-            
-            // Update cache - refresh all issues to get latest data
-            setTimeout(() => fetchIssuesPage(), 500);
         }
 
         function updateZoneFromHospital() {
@@ -2226,7 +2221,17 @@
         
         function timeAgo(timestamp) {
             if (!timestamp) return 'Just now';
-            const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
+            let date;
+            if (timestamp.toDate) {
+                date = timestamp.toDate();
+            } else if (typeof timestamp === 'number') {
+                date = new Date(timestamp);
+            } else if (typeof timestamp === 'string') {
+                date = new Date(timestamp);
+            } else {
+                return 'Unknown';
+            }
+            const seconds = Math.floor((new Date() - date) / 1000);
             let interval = seconds / 31536000;
             if (interval > 1) return Math.floor(interval) + " years ago";
             interval = seconds / 2592000;
@@ -2354,10 +2359,15 @@
             });
         }
 
-        function renderComments(snapshot) {
-            ui.modalCommentsList.innerHTML = snapshot.empty ? `<p class="text-center text-slate-500 py-4">No comments yet.</p>` : ''
-            snapshot.forEach(doc => {
-                const comment = doc.data();
+        function renderComments(comments) {
+            // Accept array of comments (from API) or Firestore snapshot
+            const commentsArray = Array.isArray(comments) ? comments : 
+                (comments && comments.forEach ? Array.from(comments).map(doc => doc.data ? doc.data() : doc) : []);
+            
+            ui.modalCommentsList.innerHTML = commentsArray.length === 0 ? 
+                `<p class="text-center text-slate-500 py-4">No comments yet.</p>` : '';
+            
+            commentsArray.forEach(comment => {
                 const el = document.createElement('div');
                 el.className = 'bg-slate-100 p-3 rounded-lg';
                 el.innerHTML = `<div class="flex justify-between items-center text-xs text-slate-500 mb-1"><span class="font-semibold text-slate-700">${comment.authorName}</span><span>${formatDateTime(comment.timestamp)}</span></div><p class="text-sm text-slate-800 whitespace-pre-wrap">${comment.text}</p>`;
@@ -2365,10 +2375,15 @@
             });
         }
 
-        function renderAttachments(snapshot) {
-            ui.modalAttachmentsList.innerHTML = snapshot.empty ? `<p class="text-center text-slate-500 py-4">No attachments.</p>` : '';
-            snapshot.forEach(doc => {
-                const attachment = { id: doc.id, ...doc.data() };
+        function renderAttachments(attachments) {
+            // Accept array of attachments (from API) or Firestore snapshot
+            const attachmentsArray = Array.isArray(attachments) ? attachments : 
+                (attachments && attachments.forEach ? Array.from(attachments).map(doc => ({ id: doc.id, ...doc.data() })) : []);
+            
+            ui.modalAttachmentsList.innerHTML = attachmentsArray.length === 0 ? 
+                `<p class="text-center text-slate-500 py-4">No attachments.</p>` : '';
+            
+            attachmentsArray.forEach(attachment => {
                 const el = document.createElement('div');
                 el.className = 'flex items-center justify-between bg-white p-2 rounded-md border';
                 el.innerHTML = `<a href="${attachment.downloadURL}" target="_blank" class="text-sm text-indigo-600 hover:underline truncate" title="${attachment.fileName}">${attachment.fileName}</a><button data-issue-id="${currentModalIssue.id}" data-attachment-id="${attachment.id}" data-file-name="${attachment.fileName}" class="delete-attachment-btn p-1 text-red-500 hover:text-red-700 text-xl leading-none">&times;</button>`;
@@ -2377,16 +2392,30 @@
             });
         }
 
-        function renderHistory(snapshot) {
+        function renderHistory(history) {
             const historyList = document.getElementById("modal-history-list");
             historyList.innerHTML = "";
-            if (snapshot.empty) {
+            
+            // Accept array of history (from API) or Firestore snapshot
+            let historyEntries = [];
+            if (Array.isArray(history)) {
+                historyEntries = history;
+            } else if (history && history.forEach) {
+                history.forEach(doc => historyEntries.push(doc.data ? doc.data() : doc));
+            }
+            
+            if (historyEntries.length === 0) {
                 historyList.innerHTML = '<p class="text-center text-slate-500 py-4">No activity history.</p>';
                 return;
             }
-            const historyEntries = [];
-            snapshot.forEach(doc => historyEntries.push(doc.data()));
-            historyEntries.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+            
+            // Sort by timestamp (handle both number and Firestore timestamp)
+            historyEntries.sort((a, b) => {
+                const timeA = typeof a.timestamp === 'number' ? a.timestamp : (a.timestamp?.toMillis ? a.timestamp.toMillis() : 0);
+                const timeB = typeof b.timestamp === 'number' ? b.timestamp : (b.timestamp?.toMillis ? b.timestamp.toMillis() : 0);
+                return timeB - timeA;
+            });
+            
             historyEntries.forEach(entry => {
                 if (entry && entry.user && entry.action) {
                     const item = document.createElement("div");
@@ -2424,12 +2453,10 @@
         }
 
         async function createNotification(recipientUIDs, message, issue) {
-            const finalRecipients = recipientUIDs.filter(id => id && id !== currentUser.uid && id !== 'unknown');
-            if (finalRecipients.length > 0) {
-                await addDoc(collection(db, 'notifications'), {
-                    recipientIds: finalRecipients, message, timestamp: serverTimestamp(), read: false
-                });
-            }
+            // Notifications via API not yet implemented
+            // For now, just log it
+            console.log('Notification:', message, 'to recipients:', recipientUIDs);
+            // TODO: Implement notifications endpoint in Flask API
 
             const cardPayload = {
                 "cardsV2": [{

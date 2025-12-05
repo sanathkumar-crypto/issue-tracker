@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Management - Issue Tracker{% endblock %}
+{% block page_title %}Admin Management{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <!-- Category Management -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div id="toggle-category-btn" class="flex justify-between items-center p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+            <h2 class="text-xl font-semibold text-slate-900">Category Management</h2>
+            <svg class="w-6 h-6 transition-transform transform text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </div>
+        <div id="category-content" class="collapsible-content open">
+            <div class="p-6 border-t border-slate-200 max-h-[600px] overflow-y-auto">
+                <!-- Add New Category -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-slate-800 mb-3">Add New Category</h3>
+                    <form method="POST" action="{{ url_for('add_category_route') }}" class="flex gap-2">
+                        <input type="text" name="category_name" placeholder="Category name" required 
+                               class="flex-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                        <button type="submit" class="py-2 px-4 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            Add Category
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Categories List -->
+                <div class="space-y-4">
+                    {% for category, subcategories in category_mappings.items() %}
+                    <div class="border border-slate-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-semibold text-slate-900">{{ category }}</h4>
+                            <div class="flex gap-2">
+                                <button onclick="editCategory('{{ category|replace(' ', '-')|replace('[', '')|replace(']', '')|replace('/', '-') }}')" class="text-indigo-600 hover:text-indigo-800 text-sm">Edit</button>
+                                <form method="POST" action="{{ url_for('delete_category_route', category=category) }}" 
+                                      onsubmit="return confirm('Delete category {{ category }}? This will also delete all subcategories.');" style="display: inline;">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Edit Category Form (hidden by default) -->
+                        <div id="edit-category-{{ category|replace(' ', '-')|replace('[', '')|replace(']', '')|replace('/', '-') }}" class="hidden mb-3">
+                            <form method="POST" action="{{ url_for('edit_category_route', category=category) }}" class="flex gap-2">
+                                <input type="text" name="new_name" value="{{ category }}" required 
+                                       class="flex-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                                <button type="submit" class="py-2 px-3 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">Save</button>
+                                <button type="button" onclick="cancelEditCategory('{{ category|replace(' ', '-')|replace('[', '')|replace(']', '')|replace('/', '-') }}')" class="py-2 px-3 text-sm font-medium rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300">Cancel</button>
+                            </form>
+                        </div>
+                        
+                        <!-- Subcategories -->
+                        <div class="ml-4">
+                            <div class="mb-2">
+                                <form method="POST" action="{{ url_for('add_subcategory_route', category=category) }}" class="flex gap-2">
+                                    <input type="text" name="subcategory" placeholder="Add subcategory" required 
+                                           class="flex-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 text-sm">
+                                    <button type="submit" class="py-2 px-3 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Add</button>
+                                </form>
+                            </div>
+                            <ul class="space-y-1">
+                                {% for sub in subcategories %}
+                                <li class="flex items-center justify-between text-sm text-slate-600 py-1">
+                                    <span>• {{ sub }}</span>
+                                    <div class="flex gap-2">
+                                        <button onclick="editSubcategory('{{ category|replace(' ', '-')|replace('[', '')|replace(']', '')|replace('/', '-') }}', '{{ sub|replace(' ', '-') }}', {{ loop.index0 }})" class="text-indigo-600 hover:text-indigo-800 text-xs">Edit</button>
+                                        <form method="POST" action="{{ url_for('delete_subcategory_route', category=category, sub=sub) }}" 
+                                              onsubmit="return confirm('Delete subcategory {{ sub }}?');" style="display: inline;">
+                                            <button type="submit" class="text-red-600 hover:text-red-800 text-xs">Delete</button>
+                                        </form>
+                                    </div>
+                                </li>
+                                <!-- Edit Subcategory Form (hidden by default) -->
+                                <div id="edit-subcategory-{{ category|replace(' ', '-')|replace('[', '')|replace(']', '')|replace('/', '-') }}-{{ sub|replace(' ', '-') }}-{{ loop.index0 }}" class="hidden mb-2">
+                                    <form method="POST" action="{{ url_for('edit_subcategory_route', category=category, sub=sub) }}" class="flex gap-2">
+                                        <input type="text" name="new_sub" value="{{ sub }}" required 
+                                               class="flex-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 text-sm">
+                                        <button type="submit" class="py-2 px-3 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">Save</button>
+                                        <button type="button" onclick="cancelEditSubcategory('{{ category|replace(' ', '-')|replace('[', '')|replace(']', '')|replace('/', '-') }}', '{{ sub|replace(' ', '-') }}', {{ loop.index0 }})" class="py-2 px-3 text-sm font-medium rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300">Cancel</button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hospital Management -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div id="toggle-hospital-btn" class="flex justify-between items-center p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+            <h2 class="text-xl font-semibold text-slate-900">Hospital Management</h2>
+            <svg class="w-6 h-6 transition-transform transform text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </div>
+        <div id="hospital-content" class="collapsible-content open">
+            <div class="p-6 border-t border-slate-200">
+                <!-- Add Hospital -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-slate-800 mb-3">Add New Hospital</h3>
+                    <form method="POST" action="{{ url_for('add_hospital') }}" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <input type="text" name="name" placeholder="Hospital name" required 
+                               class="sm:col-span-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                        <input type="text" name="zone" placeholder="Zone (e.g., South)" 
+                               class="sm:col-span-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                        <button type="submit" class="sm:col-span-1 py-2 px-4 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            Add Hospital
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Hospitals List -->
+                <div class="space-y-2 mb-6">
+                    {% for hospital in hospitals %}
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-md">
+                        <div>
+                            <span class="font-medium text-slate-900">{{ hospital.name }}</span>
+                            {% if hospital.zone %}
+                            <span class="text-sm text-slate-500 ml-2">({{ hospital.zone }})</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editHospital('{{ hospital.name|replace("'", "\\'") }}', '{{ hospital.zone|replace("'", "\\'") }}')" class="text-indigo-600 hover:text-indigo-800 text-sm">Edit</button>
+                            <form method="POST" action="{{ url_for('delete_hospital', name=hospital.name) }}" 
+                                  onsubmit="return confirm('Delete hospital {{ hospital.name }}?');" style="display: inline;">
+                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                    <!-- Edit Hospital Form (hidden by default) -->
+                    <div id="edit-hospital-{{ hospital.name|replace(' ', '-')|replace("'", '') }}" class="hidden mb-2 p-3 bg-slate-50 rounded-md">
+                        <form method="POST" action="{{ url_for('edit_hospital', name=hospital.name) }}" class="flex gap-2">
+                            <input type="text" name="new_name" value="{{ hospital.name }}" required 
+                                   class="flex-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                            <input type="text" name="new_zone" value="{{ hospital.zone or '' }}" 
+                                   class="flex-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Zone">
+                            <button type="submit" class="py-2 px-3 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">Save</button>
+                            <button type="button" onclick="cancelEditHospital('{{ hospital.name|replace(' ', '-')|replace("'", '') }}')" class="py-2 px-3 text-sm font-medium rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300">Cancel</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Bulk Add Hospitals -->
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-lg font-medium text-slate-800 mb-3">Bulk Add Hospitals</h3>
+                    <p class="text-sm text-slate-500 mb-2">Paste a list: <code>Hospital Name, Zone</code> on each line.</p>
+                    <form method="POST" action="{{ url_for('bulk_add_hospitals') }}">
+                        <textarea name="hospitals" rows="4" 
+                                  class="block w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500" 
+                                  placeholder="V Care, South&#10;Vajra Hospitals, East"></textarea>
+                        <button type="submit" class="mt-2 py-2 px-4 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            Add from List
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Role Management -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div id="toggle-user-role-btn" class="flex justify-between items-center p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+            <h2 class="text-xl font-semibold text-slate-900">User Role Management</h2>
+            <svg class="w-6 h-6 transition-transform transform text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </div>
+        <div id="user-role-content" class="collapsible-content open">
+            <div class="p-6 border-t border-slate-200">
+                <!-- Add/Update User Role -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-slate-800 mb-3">Add/Update User Role</h3>
+                    <form method="POST" action="{{ url_for('add_user_role') }}" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <input type="email" name="email" placeholder="User's email" required 
+                               class="sm:col-span-1 block px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                        <select name="role" class="sm:col-span-1 block px-3 py-2 border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <button type="submit" class="sm:col-span-1 py-2 px-4 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            Add/Update Role
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Users List -->
+                <div class="space-y-2">
+                    {% for user in all_users %}
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-md">
+                        <div>
+                            <span class="font-medium text-slate-900">{{ user.name }}</span>
+                            <span class="text-sm text-slate-500 ml-2">({{ user.email }})</span>
+                            <span class="ml-2 px-2 py-1 text-xs font-semibold rounded-full 
+                                {% if user.role == 'admin' %}bg-purple-100 text-purple-800{% else %}bg-slate-100 text-slate-800{% endif %}">
+                                {{ user.role }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Member Management -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div id="toggle-team-btn" class="flex justify-between items-center p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+            <h2 class="text-xl font-semibold text-slate-900">Team Member Management</h2>
+            <svg class="w-6 h-6 transition-transform transform text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </div>
+        <div id="team-content" class="collapsible-content open">
+            <div class="p-6 border-t border-slate-200">
+                <!-- Add Team Member -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-slate-800 mb-3">Add Team Member</h3>
+                    <form method="POST" action="{{ url_for('add_team_member') }}" class="flex gap-4">
+                        <select name="email" class="flex-grow block px-3 py-2 border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Select User</option>
+                            {% for user in all_users %}
+                            <option value="{{ user.email }}">{{ user.name }} ({{ user.email }})</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="py-2 px-4 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            Add Member
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Team Members List -->
+                <div class="flex flex-wrap gap-2">
+                    {% for member in team_members %}
+                    <span class="inline-flex items-center gap-x-1.5 rounded-md bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
+                        {{ member.name }}
+                        <form method="POST" action="{{ url_for('delete_team_member', uid=member.uid) }}" 
+                              onsubmit="return confirm('Remove {{ member.name }} from team?');" style="display: inline;">
+                            <button type="submit" class="text-red-600 hover:text-red-800">&times;</button>
+                        </form>
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Accordion toggles
+    document.querySelectorAll('[id$="-btn"]').forEach(btn => {
+        if (btn.id.includes('toggle-')) {
+            btn.addEventListener('click', () => {
+                const contentId = btn.id.replace('-btn', '-content');
+                const content = document.getElementById(contentId);
+                if (content) {
+                    content.classList.toggle('open');
+                    const svg = btn.querySelector('svg');
+                    if (svg) {
+                        svg.style.transform = content.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
+                    }
+                }
+            });
+        }
+    });
+
+    // Category editing
+    function editCategory(safeName) {
+        const editDiv = document.getElementById('edit-category-' + safeName);
+        if (editDiv) {
+            editDiv.classList.remove('hidden');
+        }
+    }
+
+    function cancelEditCategory(safeName) {
+        const editDiv = document.getElementById('edit-category-' + safeName);
+        if (editDiv) {
+            editDiv.classList.add('hidden');
+        }
+    }
+
+    // Subcategory editing
+    function editSubcategory(categorySafe, subSafe, index) {
+        const editDiv = document.getElementById('edit-subcategory-' + categorySafe + '-' + subSafe + '-' + index);
+        if (editDiv) {
+            editDiv.classList.remove('hidden');
+        }
+    }
+
+    function cancelEditSubcategory(categorySafe, subSafe, index) {
+        const editDiv = document.getElementById('edit-subcategory-' + categorySafe + '-' + subSafe + '-' + index);
+        if (editDiv) {
+            editDiv.classList.add('hidden');
+        }
+    }
+
+    // Hospital editing
+    function editHospital(name, zone) {
+        const safeName = name.replace(/\s+/g, '-').replace(/'/g, '');
+        const editDiv = document.getElementById('edit-hospital-' + safeName);
+        if (editDiv) {
+            editDiv.classList.remove('hidden');
+        }
+    }
+
+    function cancelEditHospital(name) {
+        const safeName = name.replace(/\s+/g, '-').replace(/'/g, '');
+        const editDiv = document.getElementById('edit-hospital-' + safeName);
+        if (editDiv) {
+            editDiv.classList.add('hidden');
+        }
+    }
+</script>
+{% endblock %}
