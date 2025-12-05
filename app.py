@@ -253,7 +253,7 @@ def get_comments(issue_id):
     comments_file = COMMENTS_DIR / f'{issue_id}.csv'
     return read_csv(comments_file, ['id', 'text', 'authorName', 'authorEmail', 'timestamp'])
 
-def add_comment(issue_id, comment_data):
+def save_comment(issue_id, comment_data):
     """Add a comment to an issue"""
     comments_file = COMMENTS_DIR / f'{issue_id}.csv'
     comments = get_comments(issue_id)
@@ -1178,7 +1178,7 @@ def add_comment(issue_id):
     user_name = session.get('user_name', session.get('user_email', 'Unknown'))
     user_email = session.get('user_email', '')
     
-    comment_id = add_comment(issue_id, {
+    comment_id = save_comment(issue_id, {
         'text': request.form.get('text', ''),
         'authorName': user_name,
         'authorEmail': user_email
