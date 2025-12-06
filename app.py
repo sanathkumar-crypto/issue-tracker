@@ -971,7 +971,10 @@ def issues():
     
     filtered_issues = issues_list
     if category:
-        filtered_issues = [i for i in filtered_issues if category in (i.get('category') or '')]
+        # Match exact category or category with subcategory (format: "Category: Subcategory")
+        filtered_issues = [i for i in filtered_issues 
+                          if (i.get('category') or '') == category or 
+                             (i.get('category') or '').startswith(category + ': ')]
     if hospital:
         filtered_issues = [i for i in filtered_issues if i.get('hospitalUnit') == hospital]
     if zone_filter:

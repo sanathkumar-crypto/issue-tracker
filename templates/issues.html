@@ -372,5 +372,34 @@
     });
     
     document.getElementById('other-sub-category')?.addEventListener('input', updateCategory);
+
+    // Auto-submit filter form when filters change
+    const filterForm = document.querySelector('form[method="GET"][action="{{ url_for('issues') }}"]');
+    if (filterForm) {
+        const filterSelects = filterForm.querySelectorAll('select[name], input[name="search"]');
+        filterSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        });
+        
+        // For search input, submit on Enter key or after a short delay when typing stops
+        const searchInput = filterForm.querySelector('input[name="search"]');
+        if (searchInput) {
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    filterForm.submit();
+                }, 500); // Submit after 500ms of no typing
+            });
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimeout);
+                    filterForm.submit();
+                }
+            });
+        }
+    }
 </script>
 {% endblock %}
