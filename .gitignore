@@ -1,6 +1,3 @@
-# Data directory (CSV files)
-data/
-
 # Python
 __pycache__/
 *.py[cod]
@@ -33,3 +30,8 @@ Thumbs.db
 # Flask
 instance/
 .webassets-cache
+flask_session/
+
+# Secrets
+issue_tracker_secret_key.json
+mnm_secret_key.json

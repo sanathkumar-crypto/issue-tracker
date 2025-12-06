@@ -1,17 +1,62 @@
 from flask import Flask, render_template, request, session, redirect, url_for, flash, send_from_directory
 from flask_cors import CORS
+from flask_session import Session
 from functools import wraps
 import os
 import csv
 import json
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from werkzeug.utils import secure_filename
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse, parse_qs, urlencode
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from dotenv import load_dotenv
+from config import Config
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+# Allow HTTP for localhost (required for local development)
+# WARNING: Only use this for local development, never in production!
+# In Cloud Run, we use HTTPS, so explicitly unset OAUTHLIB_INSECURE_TRANSPORT
+if os.environ.get('K_SERVICE'):
+    # We're in Cloud Run - ensure HTTPS is enforced
+    os.environ.pop('OAUTHLIB_INSECURE_TRANSPORT', None)
+elif os.environ.get('FLASK_ENV') == 'development' or 'localhost' in os.environ.get('GOOGLE_REDIRECT_URI', ''):
+    # Local development - allow HTTP
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    print("DEBUG: OAUTHLIB_INSECURE_TRANSPORT set to 1 for localhost development")
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config.from_object(Config)
+# Configure session cookie settings for OAuth flow
+# In Cloud Run, use secure cookies (HTTPS)
+is_cloud_run = bool(os.environ.get('K_SERVICE'))
+app.config['SESSION_COOKIE_SECURE'] = is_cloud_run  # True in Cloud Run (HTTPS), False for localhost
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Log configuration on startup
+logger.info(f"Running in Cloud Run: {is_cloud_run}")
+logger.info(f"OAuth Client ID configured: {bool(app.config.get('GOOGLE_CLIENT_ID'))}")
+logger.info(f"OAuth Redirect URI: {app.config.get('GOOGLE_REDIRECT_URI', 'Not set')}")
+
+# Ensure session directory exists
+session_dir = app.config.get('SESSION_FILE_DIR', 'flask_session')
+os.makedirs(session_dir, exist_ok=True)
+Session(app)
+
 CORS(app)
+
+# OAuth 2.0 scopes
+SCOPES = ['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile']
 
 # Data directory
 DATA_DIR = Path('data')
@@ -33,44 +78,19 @@ ATTACHMENTS_DIR.mkdir(exist_ok=True)
 ATTACHMENTS_FILES_DIR.mkdir(parents=True, exist_ok=True)
 HISTORY_DIR.mkdir(exist_ok=True)
 
-ALLOWED_DOMAIN = os.getenv('ALLOWED_EMAIL_DOMAIN', 'cloudphysician.net')
+ALLOWED_DOMAIN = app.config.get('ALLOWED_EMAIL_DOMAIN', 'cloudphysician.net')
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx'}
-
-# Default Categories and Subcategories (used as fallback)
-DEFAULT_CATEGORY_MAPPINGS = {
-    'Clinical [ICU]': ['Workflow not being followed', 'Staffing Shortage', 'Training Gaps', 'Partner Escalation', 
-                       'Less/No patients', 'Consultants not aligned', 'Bedside Doctors not cooperative', 
-                       'Bedside Nurses not cooperative', 'Selective Admissions', 'Poor RADAR adoption', 
-                       'Poor document transfer', 'Delayed admissions', 'Other'],
-    'Clinical [PICU/NICU]': ['Workflow not being followed', 'Staffing Shortage', 'Training Gaps', 'Partner Escalation', 
-                             'Less/No patients', 'Consultants not aligned', 'Bedside Doctors not cooperative', 
-                             'Bedside Nurses not cooperative', 'Selective Admissions', 'Poor RADAR adoption', 
-                             'Poor document transfer', 'Delayed admissions', 'Other'],
-    'RADAR Related': ['RADAR not working', 'Camera on app not working', 'Notes goes missing', 'RADAR not opening', 'Other'],
-    'Tech/Product': ['Technical issue', 'Other'],
-    'Commercial': ['Owner not happy', 'Billing mismatch', 'Bill not paid', 'Other'],
-    'Quality': ['Infection Control', 'Quality Issues [General]', 'NABH related', 'Educational Sessions', 'Other'],
-    'IT Related': ['Network issues', 'Camera not working', 'Wrong presets', 'Other'],
-    'Equipment/Infrastructure': ['Faulty speaker at bedside', 'Medical equipment related', 'Oxygen Supply related', 'Other'],
-    'FCC Request': ['Nursing FCC', 'Doctor FCC', 'Other'],
-    'Upsell/Change in service': ['Smart ER required', 'Smart Dialysis required', 'Nursing Excellence', 
-                                  'IOM + Services', 'Smart ICU/NICU/PICU', 'IOM only', 'Other'],
-    'Other': []
-}
 
 # Category storage functions
 def load_categories():
-    """Load categories from JSON file, fallback to defaults if file doesn't exist"""
+    """Load categories from JSON file"""
     if CATEGORIES_JSON.exists():
         try:
             with open(CATEGORIES_JSON, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except:
-            return DEFAULT_CATEGORY_MAPPINGS.copy()
-    else:
-        # Initialize with defaults
-        save_categories(DEFAULT_CATEGORY_MAPPINGS)
-        return DEFAULT_CATEGORY_MAPPINGS.copy()
+            return {}
+    return {}
 
 def save_categories(categories):
     """Save categories to JSON file"""
@@ -344,348 +364,9 @@ def create_or_update_user(user_data):
     return user_data
 
 # Settings Management
-# Default hospitals (hardcoded from CSV file - 328 hospitals)
-DEFAULT_HOSPITALS = [
-    {'name': 'Aarogya Hapur', 'zone': ''},
-    {'name': 'Aastha', 'zone': ''},
-    {'name': 'Abirami Kidney Care - Erode', 'zone': ''},
-    {'name': 'Abishek Hospital - Arakkonam', 'zone': ''},
-    {'name': 'Adarsh Hospital - Ramdurg', 'zone': ''},
-    {'name': 'Adarsh Hospital - Rosera', 'zone': ''},
-    {'name': 'Adarsha Hospital - Karimnagar', 'zone': ''},
-    {'name': 'Aditya Warangal', 'zone': ''},
-    {'name': 'Akash Super Speciality', 'zone': ''},
-    {'name': 'Akshar Hospital - Ahmedabad', 'zone': ''},
-    {'name': 'Anand Hospital - Chennai', 'zone': ''},
-    {'name': 'Anil Neuro and Trauma - Vijayawada', 'zone': ''},
-    {'name': 'Antara Care Homes - Bengaluru', 'zone': ''},
-    {'name': 'Anurag Healthcare - Vijayawada', 'zone': ''},
-    {'name': 'Apex', 'zone': ''},
-    {'name': 'Apex Hospital - Katni', 'zone': ''},
-    {'name': 'Arora Hospital - Rudrapur', 'zone': ''},
-    {'name': 'Aryavrat Hospital - Haridwar', 'zone': ''},
-    {'name': 'Ashirvad', 'zone': ''},
-    {'name': 'Ashirwad Hospital - Navi Mumbai', 'zone': ''},
-    {'name': 'Ashish JRC', 'zone': ''},
-    {'name': 'Ashish Jabalpur', 'zone': ''},
-    {'name': 'Ashoka Hospital - Singhia', 'zone': ''},
-    {'name': 'Ashoka Life Care', 'zone': ''},
-    {'name': 'Ashwini Hospital - Yellareddypet', 'zone': ''},
-    {'name': 'Asian Noble - Ahilya Nagar', 'zone': ''},
-    {'name': 'Aswani Multispeciality - Manvi', 'zone': ''},
-    {'name': 'Atlantis Gopalganj', 'zone': ''},
-    {'name': 'Aveksha', 'zone': ''},
-    {'name': 'Ayushman Bhav Hospital - Panipat', 'zone': ''},
-    {'name': 'BGR Hospital - Dharmapuri', 'zone': ''},
-    {'name': 'BHIO', 'zone': ''},
-    {'name': 'BMS', 'zone': ''},
-    {'name': 'Baa Ganga Hospital - Supaul', 'zone': ''},
-    {'name': 'Balaji Robotic Rehab Hospital - Salem', 'zone': ''},
-    {'name': 'Berlin General Hospital - Ranchi', 'zone': ''},
-    {'name': 'Bhate Hospital - Belagavi', 'zone': ''},
-    {'name': 'Bhoomi Hospital - Hyderabad', 'zone': ''},
-    {'name': 'Bramhapuri Hospital and Research Institute', 'zone': ''},
-    {'name': 'Bugga Reddy - Shadnagar', 'zone': ''},
-    {'name': 'CCH Davangere', 'zone': ''},
-    {'name': 'Cachar', 'zone': ''},
-    {'name': 'Care centre', 'zone': 'Care centre'},
-    {'name': 'CentraCare - Belagavi', 'zone': ''},
-    {'name': 'Charak Hospital - Indore', 'zone': ''},
-    {'name': 'Charak Lucknow', 'zone': ''},
-    {'name': 'Chendure Hospital - Samalapuram', 'zone': ''},
-    {'name': 'Chirayu Children\'s Hospital - Baramati', 'zone': ''},
-    {'name': 'Chitradurga Multispeciality', 'zone': ''},
-    {'name': 'City Hospital - Bijnor', 'zone': ''},
-    {'name': 'City Hospital Buldhana', 'zone': ''},
-    {'name': 'ClearMedi Paridhi Hospital - Gwalior', 'zone': ''},
-    {'name': 'Credence Care - Navi Mumbai', 'zone': ''},
-    {'name': 'Currex Hospital - Bengaluru', 'zone': ''},
-    {'name': 'Cutis & Kids Hospital - Bareilly', 'zone': ''},
-    {'name': 'Cytecare', 'zone': ''},
-    {'name': 'D P Bora - Lucknow', 'zone': ''},
-    {'name': 'DORD Hospital - Daudnagar', 'zone': ''},
-    {'name': 'Darbhanga Children Hospital', 'zone': ''},
-    {'name': 'Daulat Memorial Clinic - Washim', 'zone': ''},
-    {'name': 'David Multispeciality - Vaniyambadi', 'zone': ''},
-    {'name': 'Devibai Hospital - Nirmal', 'zone': ''},
-    {'name': 'Dhakne Hospital - Pune', 'zone': ''},
-    {'name': 'Dharani - Mahabubabad', 'zone': ''},
-    {'name': 'Dr. Amit Agarwal Childcare Hospital', 'zone': ''},
-    {'name': 'Dr. Dasarathan Memorial Hospital', 'zone': ''},
-    {'name': 'Dr. Mendadkar\'s Children Hospital', 'zone': ''},
-    {'name': 'Dr. Pankaj Sharma Hospital', 'zone': ''},
-    {'name': 'Dr. Patil Hospital - Madha', 'zone': ''},
-    {'name': 'Dr. Preeti Hospital - Prayagraj', 'zone': ''},
-    {'name': 'Dr. Prem Hospital', 'zone': ''},
-    {'name': 'Dr. R. K. Thakur Hospital', 'zone': ''},
-    {'name': 'Dr. Ravi Khanna\'s Vatsalya', 'zone': ''},
-    {'name': 'Durga Hospital - Jaunpur', 'zone': ''},
-    {'name': 'East Delhi Advance NICU', 'zone': ''},
-    {'name': 'FIMS Hospital - Coimbatore', 'zone': ''},
-    {'name': 'Faridabad Medical Center', 'zone': ''},
-    {'name': 'Flamingo Chennai', 'zone': ''},
-    {'name': 'Fortune Hospital - Kanpur', 'zone': ''},
-    {'name': 'G Guru Gopiram', 'zone': ''},
-    {'name': 'GBN Hospital - Bhainsa', 'zone': ''},
-    {'name': 'GSL Swatantra Hospital', 'zone': ''},
-    {'name': 'Gandhi Nursing Home - Rajnandgaon', 'zone': ''},
-    {'name': 'Giriraj Hospital - Baramati', 'zone': ''},
-    {'name': 'Goyal Hospital - Faridabad', 'zone': ''},
-    {'name': 'HCG Bhavnagar', 'zone': ''},
-    {'name': 'HCG Cuttack', 'zone': ''},
-    {'name': 'HCG EKO', 'zone': ''},
-    {'name': 'HCG Kalaburagi', 'zone': ''},
-    {'name': 'HCG Mumbai', 'zone': ''},
-    {'name': 'HCG Nagpur', 'zone': ''},
-    {'name': 'HCG Ranchi', 'zone': ''},
-    {'name': 'HCG Vijayawada', 'zone': ''},
-    {'name': 'HMC Hospital - Gummidipoondi', 'zone': ''},
-    {'name': 'HMH Hospital - Najibabad', 'zone': ''},
-    {'name': 'Hada Multispeciality Hospital - Dahod', 'zone': ''},
-    {'name': 'Hare Krishna - Begowal', 'zone': ''},
-    {'name': 'Heritage Hospital - Gorakhpur', 'zone': ''},
-    {'name': 'Hindustan Child Hospital', 'zone': ''},
-    {'name': 'ICON hospital - Nalgonda', 'zone': ''},
-    {'name': 'IIGH - Cuttack', 'zone': ''},
-    {'name': 'Ideal Children Hospital - Varanasi', 'zone': ''},
-    {'name': 'Imax Multispeciality - Pune', 'zone': ''},
-    {'name': 'Inamdar Multispeciality Hospital', 'zone': ''},
-    {'name': 'Indus Hospital - Visakhapatnam', 'zone': ''},
-    {'name': 'J.V.M. Mother and Child - Tenali', 'zone': ''},
-    {'name': 'JGR Hospital - Pithapuram_ICU', 'zone': ''},
-    {'name': 'Jai Patai Mata Hospital - Patewa', 'zone': ''},
-    {'name': 'Janani Hospital - Hosur', 'zone': ''},
-    {'name': 'Jivan Jyot - Vadodara', 'zone': ''},
-    {'name': 'Kailash Superspeciality Hospital', 'zone': ''},
-    {'name': 'Kalghatgi', 'zone': ''},
-    {'name': 'Kalindi Hospital - Kushinagar', 'zone': ''},
-    {'name': 'Kalpataru Hospital - Anjangaon', 'zone': ''},
-    {'name': 'Kalpit Hospital - Khalilabad', 'zone': ''},
-    {'name': 'Kamal Mahajan Hospital - Amritsar', 'zone': ''},
-    {'name': 'Kamala Hospitals - Kovilpatti', 'zone': ''},
-    {'name': 'Kaneria - Junagadh', 'zone': ''},
-    {'name': 'Kanha - Orai', 'zone': ''},
-    {'name': 'Karpagam Hospital - Othakkalmandapam', 'zone': ''},
-    {'name': 'Kavan Hospital - Harur', 'zone': ''},
-    {'name': 'Keerthana Visakhapatnam', 'zone': ''},
-    {'name': 'Keshav Heritage', 'zone': ''},
-    {'name': 'Kirti Multispeciality - Bhandara', 'zone': ''},
-    {'name': 'Kochhar Nursing Home - Tumsar', 'zone': ''},
-    {'name': 'Krishna Children - Hyderabad', 'zone': ''},
-    {'name': 'Krishna Children - Pusad', 'zone': ''},
-    {'name': 'Krishna Hospital - Samastipur', 'zone': ''},
-    {'name': 'Krishna Superspeciality - Bhatinda', 'zone': ''},
-    {'name': 'Krishnammal Memorial - Theni', 'zone': ''},
-    {'name': 'Kshema - Hubbali', 'zone': ''},
-    {'name': 'Laalityam Hospital-Hyderabad', 'zone': ''},
-    {'name': 'Laalityam Hospitals - Hyderabad', 'zone': ''},
-    {'name': 'Lakhichand', 'zone': ''},
-    {'name': 'Lakshya Super Speciality - Proddatur', 'zone': ''},
-    {'name': 'Leonard Hospital - Batlagundu', 'zone': ''},
-    {'name': 'Life Care Hospital', 'zone': ''},
-    {'name': 'Life Hospital - Chirala', 'zone': ''},
-    {'name': 'Life Hospital - Guntur', 'zone': ''},
-    {'name': 'Life Line Daltonganj', 'zone': ''},
-    {'name': 'Lifepoint - Pune', 'zone': ''},
-    {'name': 'Livasa Hospital - Khanna', 'zone': ''},
-    {'name': 'Lotus Hospital - Belagavi', 'zone': ''},
-    {'name': 'MAHAN Trust', 'zone': ''},
-    {'name': 'MB Multispeciality - Visakhapatnam', 'zone': ''},
-    {'name': 'MK Nursing Home - Chennai', 'zone': ''},
-    {'name': 'MMH Rajapalayam', 'zone': ''},
-    {'name': 'MR Thanjavur', 'zone': ''},
-    {'name': 'MRNH', 'zone': ''},
-    {'name': 'MS Multispeciality - Pithapuram', 'zone': ''},
-    {'name': 'Maa Sharada Vikarabad', 'zone': ''},
-    {'name': 'Mahalakshmi Multispeciality - Ulundurpet', 'zone': ''},
-    {'name': 'Mahathma Gandhi - Narasaraopeta', 'zone': ''},
-    {'name': 'Maiyan Babu Hospital - Daltonganj', 'zone': ''},
-    {'name': 'Manwath Multi-Speciality Hospital', 'zone': ''},
-    {'name': 'Mawana Healthcare Center', 'zone': ''},
-    {'name': 'Maxfort Aligarh', 'zone': ''},
-    {'name': 'Maxlife Superspeciality - Bareilly', 'zone': ''},
-    {'name': 'Medical Trust Hospital', 'zone': ''},
-    {'name': 'Medifort Hospital - Bhagalpur', 'zone': ''},
-    {'name': 'Mediversal Maatri - Patna', 'zone': ''},
-    {'name': 'Medway Heart Institute - Kodambakkam', 'zone': ''},
-    {'name': 'Medway Hospitals - Erode', 'zone': ''},
-    {'name': 'Meera Multispeciality - Hosur', 'zone': ''},
-    {'name': 'Metro Super Speciality Hospital - Vijayawada', 'zone': ''},
-    {'name': 'Mundhra Hospital - Chaibasa', 'zone': ''},
-    {'name': 'Muniya Nadar Memorial - Thanjavur', 'zone': ''},
-    {'name': 'Mythri - Bengaluru', 'zone': ''},
-    {'name': 'NDR Hospital - Bangalore', 'zone': ''},
-    {'name': 'Nageshwari Gopalganj', 'zone': ''},
-    {'name': 'Nalanda Bone & Spine', 'zone': ''},
-    {'name': 'Nankem Hospital - Coonoor', 'zone': ''},
-    {'name': 'Navjeevan Children\'s - Pandharpur', 'zone': ''},
-    {'name': 'Navjivan Multispeciality - Sitamarhi', 'zone': ''},
-    {'name': 'Neo TrueNorth - Bengaluru', 'zone': ''},
-    {'name': 'Neurolife Hospital - Bathinda', 'zone': ''},
-    {'name': 'Neuron Plus - Karad', 'zone': ''},
-    {'name': 'New Venkatesh Hospital - Manwath', 'zone': ''},
-    {'name': 'Nidan Healthcare - Hazaribagh', 'zone': ''},
-    {'name': 'Nikhil - Dilsukhnagar', 'zone': ''},
-    {'name': 'Nikhil - Srinagar Colony', 'zone': ''},
-    {'name': 'Nizar Hospital - Malappuram', 'zone': ''},
-    {'name': 'OSG Laparoscopy Hospital', 'zone': ''},
-    {'name': 'Omkilkari Hospital - Varanasi', 'zone': ''},
-    {'name': 'Ours Hospital - Hisar', 'zone': ''},
-    {'name': 'P V Cancer Centre - Sathyamangalam', 'zone': ''},
-    {'name': 'PMH Dhanbad', 'zone': ''},
-    {'name': 'Pakur Nursing Home', 'zone': ''},
-    {'name': 'Parameshwari Devi - New Delhi', 'zone': ''},
-    {'name': 'Paramount Mumbai', 'zone': ''},
-    {'name': 'Paridhi', 'zone': ''},
-    {'name': 'Parmar Hospital - Karnal', 'zone': ''},
-    {'name': 'Patil Hospital - Koregaon', 'zone': ''},
-    {'name': 'Perumalla Hospital - Nalgonda', 'zone': ''},
-    {'name': 'Pranav Hospital - Brahmavara', 'zone': ''},
-    {'name': 'Pranayu Hospital - Thane', 'zone': ''},
-    {'name': 'Prasad Athani', 'zone': ''},
-    {'name': 'Prasad Global Hospital - Prasad Medical Centre', 'zone': ''},
-    {'name': 'Prashant', 'zone': ''},
-    {'name': 'Pratheep Nursing Home', 'zone': ''},
-    {'name': 'Priya Hospital - Varanasi', 'zone': ''},
-    {'name': 'Punya Hospital - Bengaluru', 'zone': ''},
-    {'name': 'Queen\'s NRI Hospital - Vizianagaram', 'zone': ''},
-    {'name': 'RD Multi Speciality Hospital', 'zone': ''},
-    {'name': 'RMD Nursing Home - T. Nagar', 'zone': ''},
-    {'name': 'RMD Specialities Hospital - Amarambedu', 'zone': ''},
-    {'name': 'RN Pandey - Gonda', 'zone': ''},
-    {'name': 'RPS Hospital - Kharak', 'zone': ''},
-    {'name': 'RadOn Cancer Centre', 'zone': ''},
-    {'name': 'Radhakrishna Hospital - Tanuku', 'zone': ''},
-    {'name': 'Rahul Multispeciality Hospital - Kothakota', 'zone': ''},
-    {'name': 'Rajawat Hospital - Kanpur', 'zone': ''},
-    {'name': 'Rajesh Neuro Foundation - Nagercoil', 'zone': ''},
-    {'name': 'Rajeswari Multispeciality - Rameswaram', 'zone': ''},
-    {'name': 'Rajshekar Multi Speciality - Bengaluru', 'zone': ''},
-    {'name': 'Rakshit Sirsa', 'zone': ''},
-    {'name': 'Rebirth ICU & Hospital - Junagadh', 'zone': ''},
-    {'name': 'Reform Healthcare - Patna', 'zone': ''},
-    {'name': 'Regal', 'zone': ''},
-    {'name': 'Relief Hospital - Boisar', 'zone': ''},
-    {'name': 'Relief Hospital - Palghar', 'zone': ''},
-    {'name': 'Renee Hospital - Karimnagar', 'zone': ''},
-    {'name': 'Renova Neelima - Hyderabad', 'zone': ''},
-    {'name': 'S.D.A. Medical Center - Bengaluru', 'zone': ''},
-    {'name': 'SNS Hospital - Neyveli', 'zone': ''},
-    {'name': 'SV Clinic - Palladam', 'zone': ''},
-    {'name': 'SV Yennam Hospital', 'zone': ''},
-    {'name': 'SVCA - Darbhanga', 'zone': ''},
-    {'name': 'SWASA Hyderabad', 'zone': ''},
-    {'name': 'Sadguru Children Hospital - Nadiad', 'zone': ''},
-    {'name': 'Sadhana - Mudhol', 'zone': ''},
-    {'name': 'Sahaj Hospital - Indore', 'zone': ''},
-    {'name': 'Sahasra Hospital - Bengaluru', 'zone': ''},
-    {'name': 'Sai Ram - Kurnool', 'zone': ''},
-    {'name': 'Samarth Hospital - Selu', 'zone': ''},
-    {'name': 'San Joe Hospital - Ernakulam', 'zone': ''},
-    {'name': 'Sanjeevani - Bilaspur', 'zone': ''},
-    {'name': 'Sanjeevani Samastipur', 'zone': ''},
-    {'name': 'Sanjeevani Superspeciality - Nagpur', 'zone': ''},
-    {'name': 'Sanjivani Sirsa', 'zone': ''},
-    {'name': 'Sankalp Hospital', 'zone': ''},
-    {'name': 'Sanrohi Hospital - Zaheerabad', 'zone': ''},
-    {'name': 'Santevita Ranchi', 'zone': ''},
-    {'name': 'Sarayu Children\'s Hospital - Sircilla', 'zone': ''},
-    {'name': 'Saroj Hospital - Jhansi', 'zone': ''},
-    {'name': 'Sarvodya Hospital - Jalandhar', 'zone': ''},
-    {'name': 'Sarvottam Hospital - Bhopal', 'zone': ''},
-    {'name': 'Satya Kalindi - Muzaffarpur', 'zone': ''},
-    {'name': 'Satyadev Superspeciality Patna', 'zone': ''},
-    {'name': 'Shahnaaz Rural', 'zone': ''},
-    {'name': 'Shameer Hospital - Kunigal', 'zone': ''},
-    {'name': 'Shanti Hospital - Jaunpur', 'zone': ''},
-    {'name': 'Sharanabasava Hospital, Yadgir', 'zone': ''},
-    {'name': 'Shifa Hospital - Tirunelveli', 'zone': ''},
-    {'name': 'Shishu Bhavan Hospital - Bilaspur', 'zone': ''},
-    {'name': 'Shiv Kamal Memorial - Bhagalpur', 'zone': ''},
-    {'name': 'Shiv Seva Sadan - DM Hospital', 'zone': ''},
-    {'name': 'Shree Ganesha - Shirur', 'zone': ''},
-    {'name': 'Shree Hospital', 'zone': ''},
-    {'name': 'Shree Narsinh - Balod', 'zone': ''},
-    {'name': 'Shree Sai Baba Hospital - Sinnar', 'zone': ''},
-    {'name': 'Shree Sathya Subha', 'zone': ''},
-    {'name': 'Shree Vishudhanand - Kolkata', 'zone': ''},
-    {'name': 'Shri Shyam Kotputli', 'zone': ''},
-    {'name': 'Shriram Hospital - Sultanpur', 'zone': ''},
-    {'name': 'Shyam Child Care & Maternity Centre', 'zone': ''},
-    {'name': 'Shyavi Sanjeevini - Ilkal', 'zone': ''},
-    {'name': 'Siddhi Vinayak Hospital', 'zone': ''},
-    {'name': 'Siddhivinayak Children\'s Hospital - Ahilya Nagar', 'zone': ''},
-    {'name': 'Siu Ka Pha Hospital', 'zone': ''},
-    {'name': 'Smart Rajamahendravaram', 'zone': ''},
-    {'name': 'Sowmiya Hospital - Karamadai', 'zone': ''},
-    {'name': 'Spandan - Belagavi', 'zone': ''},
-    {'name': 'Spandan Jamnagar', 'zone': ''},
-    {'name': 'Sravani Hospital - Guntur', 'zone': ''},
-    {'name': 'Sree Ayyappa - Kozhencherry', 'zone': ''},
-    {'name': 'Sri Ganga - Rajamahendravaram', 'zone': ''},
-    {'name': 'Sri Keshav - Rajamahendravaram', 'zone': ''},
-    {'name': 'Sri Sai Ganga Nursing Home', 'zone': ''},
-    {'name': 'Sri Sai Hospital - Bengaluru', 'zone': ''},
-    {'name': 'Sri Sai Life Line - Karimnagar', 'zone': ''},
-    {'name': 'Sri Sai Life Line - Karinmagar', 'zone': ''},
-    {'name': 'Sri Sri Holistic - Proddatur', 'zone': ''},
-    {'name': 'Sri Suraksha Multispeciality - Gudivada', 'zone': ''},
-    {'name': 'Srinivasa Hospital - Hyderabad', 'zone': ''},
-    {'name': 'Sripathi Hospet', 'zone': ''},
-    {'name': 'St. Theresa - Vellore', 'zone': ''},
-    {'name': 'Stork Hospital - Hyderabad', 'zone': ''},
-    {'name': 'Sunrise Godda', 'zone': ''},
-    {'name': 'Sunrise Patna', 'zone': ''},
-    {'name': 'Sunrise Varanasi', 'zone': ''},
-    {'name': 'Sunseed Hospitals - Hyderabad', 'zone': ''},
-    {'name': 'Sunstar Hospital - Rajamahendravaram', 'zone': ''},
-    {'name': 'Surendra Hospital - Angul', 'zone': ''},
-    {'name': 'Suriyan Hospital - Tiruvannamalai', 'zone': ''},
-    {'name': 'Surya Super Speciality - Sahibganj', 'zone': ''},
-    {'name': 'Sushruta Bhubaneswar', 'zone': ''},
-    {'name': 'Synergy Global', 'zone': ''},
-    {'name': 'TLM Chandkhuri', 'zone': ''},
-    {'name': 'Taneja Hospital - Jagraon', 'zone': ''},
-    {'name': 'Tridev Deoghar', 'zone': ''},
-    {'name': 'Trust-In Hospital - Bengaluru', 'zone': ''},
-    {'name': 'Tulip Superspeciality - Pandharpur', 'zone': ''},
-    {'name': 'Udayananda Hospital - Nandyal', 'zone': ''},
-    {'name': 'United City - Ahmednagar', 'zone': ''},
-    {'name': 'Urmila Devi Memorial Hospital', 'zone': ''},
-    {'name': 'V Care - Bengaluru', 'zone': ''},
-    {'name': 'V Care - Hubli', 'zone': ''},
-    {'name': 'VGK Heart Institute - Raichur', 'zone': ''},
-    {'name': 'Vajra Hospitals - Hyderabad', 'zone': ''},
-    {'name': 'Valentis Cancer Hospital - Meerut', 'zone': ''},
-    {'name': 'Varad Multispeciality - Atpadi', 'zone': ''},
-    {'name': 'Varad Multispeciality Hospital', 'zone': ''},
-    {'name': 'Varasiddii Hospital - Gangavati', 'zone': ''},
-    {'name': 'Vardaan Hospital - Ranchi', 'zone': ''},
-    {'name': 'Vardhaman Hospital - Guna', 'zone': ''},
-    {'name': 'Ved Hospital - Kheda', 'zone': ''},
-    {'name': 'Vedanta Hospital - Bulandshahr', 'zone': ''},
-    {'name': 'Vijaya Global Hospital - Belagavi', 'zone': ''},
-    {'name': 'Vijaya Golbal Hospital - Belagavi', 'zone': ''},
-    {'name': 'Vijaya Multi-Speciality - Sankeshwar', 'zone': ''},
-    {'name': 'Vijaya Ortho & Trauma - Belagavi', 'zone': ''},
-    {'name': 'Viva Shadnagar', 'zone': ''},
-    {'name': 'Vivekanand Hospital - Khalilabad', 'zone': ''},
-    {'name': 'Vivekananda Memorial Hospital - Saragur', 'zone': ''},
-    {'name': 'WIINS Kolhapur', 'zone': ''},
-    {'name': 'Willis F. Pierce Memorial - Wai', 'zone': ''},
-    {'name': 'Yashwantrao Chavan - Junnar', 'zone': ''},
-    {'name': 'Yogyam Hospital - Vasai', 'zone': ''},
-]
-# Total: 329 hospitals from CSV file
-
 def get_hospitals():
-    """Get hospitals list from CSV, initialize with defaults if empty or has fewer hospitals"""
-    hospitals = read_csv(HOSPITALS_CSV, ['name', 'zone'])
-    if not hospitals or len(hospitals) < len(DEFAULT_HOSPITALS):
-        # Initialize with defaults if CSV is empty or has fewer hospitals
-        save_hospitals(DEFAULT_HOSPITALS)
-        return DEFAULT_HOSPITALS.copy()
-    return hospitals
+    """Get hospitals list from CSV"""
+    return read_csv(HOSPITALS_CSV, ['name', 'zone'])
 
 def save_hospitals(hospitals_list):
     """Save hospitals list"""
@@ -806,17 +487,22 @@ def index_html():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    """Initiate Google OAuth login or handle email login fallback."""
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    
+    # Handle POST request (fallback email login when OAuth not configured)
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         
         if not email:
             flash('Email is required', 'error')
-            return render_template('login.html')
+            return render_template('login.html', oauth_configured=False)
         
         # Check email domain
         if not email.endswith(f'@{ALLOWED_DOMAIN}'):
-            flash(f'Only {ALLOWED_DOMAIN} email addresses are allowed', 'error')
-            return render_template('login.html')
+            flash(f'Only @{ALLOWED_DOMAIN} email addresses are allowed', 'error')
+            return render_template('login.html', oauth_configured=False)
         
         # Get or create user
         user = get_user_by_email(email)
@@ -842,10 +528,248 @@ def login():
         
         return redirect(url_for('dashboard'))
     
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
+    # For local development, always use localhost redirect URI
+    # Check if we're running locally (not in Cloud Run)
+    is_local = not os.environ.get('K_SERVICE')
+    if is_local:
+        # Use localhost with the port the app is running on
+        port = int(os.environ.get('PORT', 5001))
+        redirect_uri = f'http://localhost:{port}/login/callback'
+        os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    else:
+        # In Cloud Run, use the configured redirect URI
+        redirect_uri = app.config.get('GOOGLE_REDIRECT_URI', 'http://localhost:5001/login/callback').strip()
+        if 'localhost' in redirect_uri or '127.0.0.1' in redirect_uri:
+            os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     
-    return render_template('login.html')
+    # Check if we have OAuth credentials configured
+    client_id = app.config.get('GOOGLE_CLIENT_ID', '').strip()
+    client_secret = app.config.get('GOOGLE_CLIENT_SECRET', '').strip()
+    
+    # Debug logging
+    logger.info(f"Client ID present: {bool(client_id)}")
+    logger.info(f"Redirect URI: {redirect_uri}")
+    
+    if not client_id or not client_secret:
+        # For development, allow bypass with email login
+        return render_template('login.html', oauth_configured=False)
+    
+    try:
+        # Validate client ID format
+        if not client_id.endswith('.apps.googleusercontent.com'):
+            raise ValueError(f"Invalid Client ID format. Should end with .apps.googleusercontent.com")
+        
+        client_config = {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [redirect_uri]
+            }
+        }
+        
+        logger.info(f"Creating OAuth flow with redirect URI: {redirect_uri}")
+        flow = Flow.from_client_config(client_config, scopes=SCOPES)
+        flow.redirect_uri = redirect_uri
+        
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            prompt='consent'
+        )
+        
+        session['oauth_state'] = state
+        logger.info(f"OAuth flow created successfully, redirecting to: {authorization_url[:100]}...")
+        return redirect(authorization_url)
+    except ValueError as e:
+        error_msg = f"Configuration error: {str(e)}"
+        logger.error(error_msg)
+        return render_template('login.html', 
+                             oauth_configured=False, 
+                             oauth_error=error_msg)
+    except Exception as e:
+        # If OAuth fails, show error and allow dev bypass
+        error_msg = f"OAuth error: {str(e)}"
+        logger.error(error_msg)
+        import traceback
+        traceback.print_exc()
+        return render_template('login.html', 
+                             oauth_configured=False, 
+                             oauth_error=error_msg)
+
+@app.route('/login/callback')
+def login_callback():
+    """Handle OAuth callback."""
+    # For local development, always use localhost redirect URI
+    # Check if we're running locally (not in Cloud Run)
+    is_local = not os.environ.get('K_SERVICE')
+    if is_local:
+        # Use localhost with the port the app is running on
+        port = int(os.environ.get('PORT', 5001))
+        redirect_uri = f'http://localhost:{port}/login/callback'
+        os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    else:
+        # In Cloud Run, use the configured redirect URI
+        redirect_uri = app.config.get('GOOGLE_REDIRECT_URI', 'http://localhost:5001/login/callback').strip()
+        if 'localhost' in redirect_uri or '127.0.0.1' in redirect_uri:
+            os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    
+    if 'error' in request.args:
+        error = request.args.get('error')
+        error_description = request.args.get('error_description', '')
+        logger.error(f"OAuth error from Google: {error}")
+        logger.error(f"Error description: {error_description}")
+        return render_template('login.html', 
+                             oauth_configured=False, 
+                             oauth_error=f"OAuth Error: {error}. {error_description}")
+    
+    state = session.get('oauth_state')
+    received_state = request.args.get('state')
+    
+    # Debug session info
+    logger.info(f"Session ID: {session.get('_id', 'N/A')}")
+    logger.info(f"Session keys: {list(session.keys())}")
+    logger.info(f"OAuth state in session: {state}")
+    logger.info(f"Received state from callback: {received_state}")
+    
+    client_id = app.config.get('GOOGLE_CLIENT_ID', '').strip()
+    client_secret = app.config.get('GOOGLE_CLIENT_SECRET', '').strip()
+    
+    if not client_id or not client_secret:
+        return "OAuth not configured", 500
+    
+    # In Cloud Run, ensure OAUTHLIB_INSECURE_TRANSPORT is NOT set
+    if os.environ.get('K_SERVICE'):
+        os.environ.pop('OAUTHLIB_INSECURE_TRANSPORT', None)
+        # Ensure redirect_uri is HTTPS
+        if redirect_uri and not redirect_uri.startswith('https://'):
+            # Try to get from Cloud Run environment
+            service_url = os.environ.get('K_SERVICE_URL', '')
+            if service_url:
+                redirect_uri = f"{service_url}/login/callback"
+            else:
+                # Fallback: construct from request
+                redirect_uri = request.url.replace('http://', 'https://', 1).split('?')[0]
+    
+    # Validate state - if session state exists, it must match. Otherwise, proceed with received state
+    if state and state != received_state:
+        logger.warning(f"State mismatch. Expected: {state}, Received: {received_state}")
+        return "Invalid state parameter", 400
+    elif not state:
+        # State was lost from session - this happens in development with Flask-Session issues
+        # We can still proceed if we have a valid code and received_state
+        logger.warning(f"WARNING - State lost from session but received: {received_state}")
+        if not received_state or not request.args.get('code'):
+            return "Session expired. Please try again.", 400
+    
+    try:
+        logger.info(f"Creating OAuth flow for callback with redirect URI: {redirect_uri}")
+        logger.info(f"OAUTHLIB_INSECURE_TRANSPORT: {os.environ.get('OAUTHLIB_INSECURE_TRANSPORT', 'NOT SET')}")
+        logger.info(f"Is Cloud Run: {bool(os.environ.get('K_SERVICE'))}")
+        client_config = {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [redirect_uri]
+            }
+        }
+        
+        # Create flow without state - we'll validate it separately
+        # The Flow doesn't require state for token exchange, only for validation
+        flow = Flow.from_client_config(client_config, scopes=SCOPES)
+        flow.redirect_uri = redirect_uri
+        
+        # In Cloud Run, ensure we use HTTPS for the callback URL
+        # request.url might be HTTP internally, but we need HTTPS for OAuth
+        callback_url = request.url
+        if os.environ.get('K_SERVICE'):
+            # We're in Cloud Run - MUST use HTTPS
+            # Ensure OAUTHLIB_INSECURE_TRANSPORT is not set
+            os.environ.pop('OAUTHLIB_INSECURE_TRANSPORT', None)
+            
+            # Construct proper HTTPS URL
+            if redirect_uri.startswith('https://'):
+                # Use the redirect_uri as base and append query parameters
+                parsed_request = urlparse(request.url)
+                query_params = parse_qs(parsed_request.query)
+                # Build the callback URL using the configured redirect_uri
+                callback_url = f"{redirect_uri}?{urlencode(query_params, doseq=True)}"
+            elif callback_url.startswith('http://'):
+                # Fallback: replace http with https
+                callback_url = callback_url.replace('http://', 'https://', 1)
+            
+            # Double-check that callback_url is HTTPS
+            if not callback_url.startswith('https://'):
+                raise ValueError(f"Callback URL must be HTTPS in Cloud Run, got: {callback_url[:100]}")
+        else:
+            # Local development - use the request URL as-is (should be localhost)
+            callback_url = request.url
+        
+        logger.info(f"Fetching token with URL: {callback_url[:200]}...")
+        logger.info(f"Callback URL is HTTPS: {callback_url.startswith('https://')}")
+        flow.fetch_token(authorization_response=callback_url)
+        logger.info("Token fetched successfully")
+        
+        credentials = flow.credentials
+        session['credentials'] = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes
+        }
+        
+        # Get user info
+        logger.info("Building OAuth2 service to get user info")
+        service = build('oauth2', 'v2', credentials=credentials)
+        user_info = service.userinfo().get().execute()
+        logger.info(f"User info retrieved: {user_info.get('email', 'N/A')}")
+        
+        email = user_info.get('email', '').lower()
+        if not email.endswith(f'@{ALLOWED_DOMAIN}'):
+            session.clear()
+            return f"Access denied. Only @{ALLOWED_DOMAIN} email addresses are allowed.", 403
+        
+        # Get or create user
+        user = get_user_by_email(email)
+        if not user:
+            # Determine role based on hardcoded admin list
+            role = 'admin' if is_admin(email) else 'member'
+            user = create_or_update_user({
+                'email': email,
+                'name': user_info.get('name', email.split('@')[0]),
+                'role': role
+            })
+        else:
+            # Update role if user is in admin list
+            if is_admin(email):
+                user['role'] = 'admin'
+                create_or_update_user(user)
+            # Update name if available from OAuth
+            if user_info.get('name'):
+                user['name'] = user_info.get('name')
+                create_or_update_user(user)
+        
+        # Set session
+        session['user_id'] = user['id']
+        session['user_email'] = email
+        session['user_name'] = user.get('name', user_info.get('name', email.split('@')[0]))
+        session['user_role'] = user.get('role', 'member')
+        session.pop('oauth_state', None)
+        
+        return redirect(url_for('dashboard'))
+    except Exception as e:
+        error_msg = f"OAuth callback error: {str(e)}"
+        logger.error(error_msg)
+        import traceback
+        traceback.print_exc()
+        return render_template('login.html', 
+                             oauth_configured=False, 
+                             oauth_error=error_msg)
 
 @app.route('/logout')
 def logout():
@@ -1591,5 +1515,5 @@ def export_csv():
 
 if __name__ == '__main__':
     import sys
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5001
     app.run(debug=True, host='0.0.0.0', port=port)

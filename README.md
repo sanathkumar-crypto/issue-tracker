@@ -98,11 +98,20 @@ data/
 
 ## Authentication
 
-- Simple email-based login
-- Only `@cloudphysician.net` emails are allowed
+### Google OAuth (Production - GCP)
+
+When deployed on GCP Cloud Run, the application uses Google OAuth 2.0:
+- Users authenticate with their Google account
+- Only `@cloudphysician.net` email addresses are allowed
+- Session-based authentication with secure cookies
+- Admin users are defined in `app.py` (ADMIN_USERS list)
+
+### Simple Email Login (Local Development)
+
+For local development, you can use simple email-based login:
+- Enter your email (must be @cloudphysician.net domain)
 - No password required (for internal use)
 - Session-based authentication
-- Admin users are defined in `app.py` (ADMIN_USERS list)
 
 ## Admin Features
 
@@ -115,6 +124,95 @@ Admins can:
 - Close issues (with review notes)
 
 ## Deployment
+
+### Google Cloud Platform (GCP) Deployment with OAuth
+
+The application is configured to deploy as a microservice on Google Cloud Run with Google OAuth authentication.
+
+#### Prerequisites
+
+1. **Google Cloud SDK**: Install and authenticate
+   ```bash
+   gcloud auth login
+   gcloud config set project patientview-9uxml
+   ```
+
+2. **Google OAuth Credentials**: 
+   - Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   - Create OAuth 2.0 Client ID credentials
+   - Add authorized redirect URI: `https://issue-tracker-971880579407.asia-south1.run.app/login/callback`
+   - Note down the Client ID and Client Secret
+
+#### Setup Secrets
+
+1. **Create the secret in Secret Manager**:
+   ```bash
+   ./create_secret.sh
+   ```
+   
+   Or manually create a JSON file and upload it:
+   ```bash
+   # Create secret.json with:
+   {
+     "SECRET_KEY": "your-secret-key-here",
+     "GOOGLE_CLIENT_ID": "your-client-id.apps.googleusercontent.com",
+     "GOOGLE_CLIENT_SECRET": "GOCSPX-your-client-secret",
+     "GOOGLE_REDIRECT_URI": "https://issue-tracker-971880579407.asia-south1.run.app/login/callback",
+     "ALLOWED_EMAIL_DOMAIN": "cloudphysician.net"
+   }
+   
+   # Upload to Secret Manager
+   gcloud secrets create ISSUE_TRACKER_SECRET_KEY --data-file=secret.json --project=patientview-9uxml
+   ```
+
+2. **Update OAuth Redirect URI**: After first deployment, update the redirect URI in Google Cloud Console with the actual service URL.
+
+#### Deploy to Cloud Run
+
+```bash
+./deploy.sh
+```
+
+The script will:
+- Build the Docker container
+- Push to Container Registry
+- Deploy to Cloud Run
+- Configure secrets from Secret Manager
+- Display the service URL
+
+#### Configuration
+
+- **Project ID**: `patientview-9uxml`
+- **Service Name**: `issue-tracker`
+- **Region**: `asia-south1`
+- **Memory**: 1Gi
+- **CPU**: 1
+- **Max Instances**: 10
+- **Timeout**: 900 seconds
+
+#### Environment Variables
+
+The following are loaded from Secret Manager:
+- `ISSUE_TRACKER_SECRET_KEY` (JSON secret containing all OAuth and app config)
+
+#### Manual Deployment
+
+If you prefer to deploy manually:
+
+```bash
+# Build and deploy
+gcloud builds submit --config cloudbuild.yaml \
+  --substitutions=_REGION=asia-south1 \
+  --project patientview-9uxml
+```
+
+#### Update OAuth Redirect URI After Deployment
+
+After deployment, get the service URL and update:
+1. Google Cloud Console → APIs & Services → Credentials
+2. Edit your OAuth 2.0 Client ID
+3. Add the new redirect URI: `https://YOUR-SERVICE-URL.run.app/login/callback`
+4. Update the secret in Secret Manager with the new redirect URI
 
 ### Production Deployment with Gunicorn
 
