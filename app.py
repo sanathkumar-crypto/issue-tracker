@@ -388,6 +388,7 @@ DEFAULT_HOSPITALS = [
     {'name': 'Bugga Reddy - Shadnagar', 'zone': ''},
     {'name': 'CCH Davangere', 'zone': ''},
     {'name': 'Cachar', 'zone': ''},
+    {'name': 'Care centre', 'zone': 'Care centre'},
     {'name': 'CentraCare - Belagavi', 'zone': ''},
     {'name': 'Charak Hospital - Indore', 'zone': ''},
     {'name': 'Charak Lucknow', 'zone': ''},
@@ -675,7 +676,7 @@ DEFAULT_HOSPITALS = [
     {'name': 'Yashwantrao Chavan - Junnar', 'zone': ''},
     {'name': 'Yogyam Hospital - Vasai', 'zone': ''},
 ]
-# Total: 328 hospitals from CSV file
+# Total: 329 hospitals from CSV file
 
 def get_hospitals():
     """Get hospitals list from CSV, initialize with defaults if empty or has fewer hospitals"""
