@@ -1,0 +1,40 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/issue-tracker:latest', '.']
+  
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/issue-tracker:latest']
+  
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'issue-tracker'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/issue-tracker:latest'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '900'
+      - '--max-instances'
+      - '10'
+      - '--set-secrets'
+      - 'ISSUE_TRACKER_SECRET_KEY=ISSUE_TRACKER_SECRET_KEY:latest'
+
+images:
+  - 'gcr.io/$PROJECT_ID/issue-tracker:latest'
+
+substitutions:
+  _REGION: 'asia-south1'
+

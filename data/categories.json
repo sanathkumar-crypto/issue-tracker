@@ -1,0 +1,83 @@
+{
+  "Clinical [ICU]": [
+    "Workflow not being followed",
+    "Staffing Shortage",
+    "Training Gaps",
+    "Partner Escalation",
+    "Less/No patients",
+    "Consultants not aligned",
+    "Bedside Doctors not cooperative",
+    "Bedside Nurses not cooperative",
+    "Selective Admissions",
+    "Poor RADAR adoption",
+    "Poor document transfer",
+    "Delayed admissions",
+    "Other"
+  ],
+  "Clinical [PICU/NICU]": [
+    "Workflow not being followed",
+    "Staffing Shortage",
+    "Training Gaps",
+    "Partner Escalation",
+    "Less/No patients",
+    "Consultants not aligned",
+    "Bedside Doctors not cooperative",
+    "Bedside Nurses not cooperative",
+    "Selective Admissions",
+    "Poor RADAR adoption",
+    "Poor document transfer",
+    "Delayed admissions",
+    "Other"
+  ],
+  "RADAR Related": [
+    "RADAR not working",
+    "Camera on app not working",
+    "Notes goes missing",
+    "RADAR not opening",
+    "Other"
+  ],
+  "Tech/Product": [
+    "Technical issue",
+    "Other"
+  ],
+  "Commercial": [
+    "Owner not happy",
+    "Billing mismatch",
+    "Bill not paid",
+    "Other"
+  ],
+  "Quality": [
+    "Infection Control",
+    "Quality Issues [General]",
+    "NABH related",
+    "Educational Sessions",
+    "Other"
+  ],
+  "IT Related": [
+    "Network issues",
+    "Camera not working",
+    "Wrong presets",
+    "Other"
+  ],
+  "Equipment/Infrastructure": [
+    "Faulty speaker at bedside",
+    "Medical equipment related",
+    "Oxygen Supply related",
+    "Other"
+  ],
+  "FCC Request": [
+    "Nursing FCC",
+    "Doctor FCC",
+    "Other"
+  ],
+  "Upsell/Change in service": [
+    "Smart ER required",
+    "Smart Dialysis required",
+    "Nursing Excellence",
+    "IOM + Services",
+    "Smart ICU/NICU/PICU",
+    "IOM only",
+    "Other"
+  ],
+  "Other": []
+}
