@@ -9,7 +9,7 @@ from pathlib import Path
 from werkzeug.utils import secure_filename
 from urllib.parse import unquote
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 CORS(app)
 
@@ -798,6 +798,11 @@ def index():
         return redirect(url_for('login'))
     return redirect(url_for('dashboard'))
 
+@app.route('/index.html')
+def index_html():
+    """Redirect index.html to main route to ensure only Flask templates are used"""
+    return redirect(url_for('index'))
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -881,7 +886,7 @@ def dashboard():
     
     for issue in issues:
         # Check if closed
-        is_closed = bool(issue.get('time_closed'))
+        is_closed = bool(issue.get('dateClosed'))
         
         if is_closed:
             stats['closedTasks'] += 1
@@ -899,7 +904,7 @@ def dashboard():
         # Parse dates
         try:
             time_started = datetime.fromisoformat(issue.get('time_started', '').replace('Z', '+00:00')) if issue.get('time_started') else None
-            time_closed = datetime.fromisoformat(issue.get('time_closed', '').replace('Z', '+00:00')) if issue.get('time_closed') else None
+            time_closed = datetime.fromisoformat(issue.get('dateClosed', '').replace('Z', '+00:00')) if issue.get('dateClosed') else None
         except:
             time_started = None
             time_closed = None
@@ -997,11 +1002,25 @@ def issues():
     
     # Format issues for template
     formatted_issues = []
+    issues_to_update = []
     for issue in filtered_issues:
         formatted_issue = dict(issue)
         formatted_issue['dateLogged_formatted'] = format_datetime(issue.get('dateLogged'))
         formatted_issue['dueDate_formatted'] = format_date(issue.get('dueDate'))
+        # Sync status with dateClosed - if dateClosed is set, status should be Closed
+        if issue.get('dateClosed') and formatted_issue.get('status') != 'Closed':
+            formatted_issue['status'] = 'Closed'
+            issue['status'] = 'Closed'
+            issues_to_update.append(issue)
         formatted_issues.append(formatted_issue)
+    
+    # Update issues that need status sync (batch update)
+    if issues_to_update:
+        all_issues = get_all_issues()
+        for updated_issue in issues_to_update:
+            all_issues = [i for i in all_issues if i.get('id') != updated_issue.get('id')]
+            all_issues.append(updated_issue)
+        write_csv(ISSUES_CSV, all_issues, ISSUES_HEADERS)
     
     # Pagination
     page = int(request.args.get('page', 1))
@@ -1154,23 +1173,25 @@ def close_issue(issue_id):
         flash('Issue not found', 'error')
         return redirect(url_for('issues'))
     
-    if issue.get('time_closed'):
+    if issue.get('dateClosed'):
         flash('Issue is already closed', 'info')
         return redirect(url_for('issue_detail', issue_id=issue_id))
     
     # Close the issue
-    issue['time_closed'] = datetime.now().isoformat()
+    issue['dateClosed'] = datetime.now().isoformat()
+    issue['status'] = 'Closed'
     save_issue(issue)
     
     flash('Issue closed successfully', 'success')
     return redirect(url_for('issue_detail', issue_id=issue_id))
 
-@app.route('/issues/<issue_id>/delete', methods=['POST'])
-@admin_required
-def delete_issue(issue_id):
-    delete_issue_data(issue_id)
-    flash('Issue deleted', 'success')
-    return redirect(url_for('issues'))
+# Delete functionality removed - tasks are not deletable
+# @app.route('/issues/<issue_id>/delete', methods=['POST'])
+# @admin_required
+# def delete_issue(issue_id):
+#     delete_issue_data(issue_id)
+#     flash('Issue deleted', 'success')
+#     return redirect(url_for('issues'))
 
 @app.route('/issues/<issue_id>/comments', methods=['POST'])
 @login_required
